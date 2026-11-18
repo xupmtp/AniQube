@@ -174,7 +174,7 @@ export function buildSeasons(playlists, videos, cfg, ch, members) {
     const works = new Set(eps.map((e) => /《(.+?)》/.exec(e.title)?.[1]).filter(Boolean));
     if (works.size > 2) continue; // 混合清單（多部作品的精選）
     // members：清單裡被當成會員限定扣掉的集數，作品頁用來提示「其餘為會員限定」
-    out.push({ playlistId: p.id, rawTitle: p.title, episodes: sortEpisodes(eps), members: p.videoIds.filter((id) => members.has(id)).length });
+    out.push({ playlistId: p.id, rawTitle: p.title, desc: p.desc ?? '', episodes: sortEpisodes(eps), members: p.videoIds.filter((id) => members.has(id)).length });
   }
   return out;
 }
@@ -340,4 +340,20 @@ export function groupWorks(items, override = {}, related = {}) {
       .map((g) => ({ name: g.name, kind: 'special', no: Infinity, order: g.order, dubs: [...g.dubs.values()] }));
     return { key, base, seasons: [...seasons, ...specials] };
   });
+}
+
+// ── 中文簡介：頻道播放清單的說明，清掉宣傳雜訊（docs/features.md）──
+const DESC_JUNK = /https?:\/\/|www\.|@|#|訂閱|订阅|會員|会员|Member|下載|下载|APP|App|更新時間|更新时间|每周|每週|上映|播出|官網|官网|粉絲|粉丝|Facebook|Instagram|IG|Twitter|LINE|原作[／/:：]|導演[／/:：]|监督|監督[／/:：]|製作[／/:：]|動畫製作|声優|聲優[／/:：]|CAST|STAFF|Hottest|Subscribe|热播|熱播/i;
+const DESC_LEAD = /^\s*(☞|▶|►|👉|🔥|🗓|📅|\d{1,2}:\d{2})/u;
+
+/** 清理頻道寫的說明：騰訊有「简介」標題就只取其後；刪宣傳行、表情符號；太短（<30 字）回空字串 */
+export function cleanDesc(raw) {
+  let lines = String(raw ?? '').split(/\r?\n/);
+  const at = lines.findIndex((l) => /^\s*[简簡]介\s*[:：]?\s*$/.test(l));
+  if (at >= 0) lines = lines.slice(at + 1);
+  const kept = lines
+    .filter((l) => !DESC_LEAD.test(l) && !DESC_JUNK.test(l))
+    .map((l) => l.replace(/[\p{Extended_Pictographic}\u{FE0F}\u200D]/gu, '').trim());
+  const text = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return [...text].length >= 30 ? text : '';
 }

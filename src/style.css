@@ -209,7 +209,11 @@ main { min-height: calc(100vh - 120px); }
 .head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s8); align-items: end; }
 .poster { width: clamp(150px, 16vw, 220px); aspect-ratio: 2/3; object-fit: cover; border-radius: var(--r); box-shadow: 0 24px 48px #000c, 0 0 0 1px #ffffff1a; }
 .title-page h1 { font: 900 var(--fs-h1)/1.15 var(--serif); margin: 0 0 var(--s3); text-wrap: balance; }
-.desc { color: #d6cfc5; max-width: 62ch; margin: var(--s6) 0; line-height: 1.75; }
+.desc-box { max-width: 62ch; margin: var(--s6) 0; }
+.desc { color: #d6cfc5; margin: 0; line-height: 1.8; white-space: pre-line; }
+.desc.clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.desc-box .link { padding-left: 0; }
+.desc-tag { display: inline-block; margin-bottom: var(--s2); padding: 1px 8px; border-radius: 4px; background: var(--ink-3); color: var(--dim); font-size: var(--fs-xs); }
 .title-page h2 { margin: var(--s12) 0 var(--s3); font: 700 var(--fs-h2)/1.3 var(--serif); }
 .title-page h2::before, .pickers h2::before { content: ""; display: inline-block; vertical-align: .12em; width: 10px; height: 10px; margin-right: var(--s3); background: var(--shu); box-shadow: 3px 3px 0 #d23a2259; }
 

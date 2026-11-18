@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, norm } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -226,4 +226,12 @@ test('orderSeasons：有季數照季數，沒季數的依首播時間插入，�
   assert.deepEqual(names([s('完結篇', null, 20231), s('The Final Season', null, 20204), s('合輯', null, 20132), s('第二季', 2, 20172), s('第三季', 3, 20183)]),
     ['合輯', '第二季', '第三季', 'The Final Season', '完結篇']);
   assert.deepEqual(names([s('第二季', 2, null), s('無資料', null, null, 1)]), ['無資料', '第二季']);
+});
+
+test('cleanDesc：騰訊只取「简介」之後，刪宣傳行與表情符號，太短回空字串', () => {
+  const tx = '🗓️ 更新时间：每周4更新1集，会员专享\n\n简介\n《大理寺日志》讲述的是在唐朝武明空统治时期，以主管全国大案要案的大理寺为舞台，展开各种惊心动魄的破案冒险。\n\n00:00 加入腾讯视频\n🔥热播动漫🔥\n☞ 仙逆: https://youtube.com/x';
+  assert.equal(cleanDesc(tx), '《大理寺日志》讲述的是在唐朝武明空统治时期，以主管全国大案要案的大理寺为舞台，展开各种惊心动魄的破案冒险。');
+  const muse = '《某作》2026.11.06上映確定\n\n少年終將長大，思春期奇幻故事堂堂步入完結，所有謎團即將揭曉。\n原作／某人、導演／某人';
+  assert.equal(cleanDesc(muse), '少年終將長大，思春期奇幻故事堂堂步入完結，所有謎團即將揭曉。');
+  assert.equal(cleanDesc('《幼女戰記》\n《幼女戰記 2》'), '');
 });

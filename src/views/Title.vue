@@ -40,6 +40,10 @@ function pickSeason(s: number) {
   const lang = season.value?.dubs[sel.value.d]?.lang;
   sel.value = { s, d: Math.max(0, detail.value!.seasons[s].dubs.findIndex((d) => d.lang === lang)) };
 }
+// 簡介預設 4 行，長的可以展開（換作品時收回）
+const more = ref(false);
+watch(id, () => { more.value = false; });
+const long = computed(() => { const d = detail.value?.desc ?? ''; return d.length > 140 || d.split('\n').filter(Boolean).length > 4; });
 const hasHistory = computed(() => !!progress[id.value] || !!watched[id.value]?.length);
 function wipe() { if (confirm('清除這部作品的觀看紀錄？續播進度和看過的標記都會消失。')) clearHistory(id.value); }
 const enc = encodeURIComponent;
@@ -58,7 +62,11 @@ const enc = encodeURIComponent;
           <p class="chips"><span v-for="g in [...work.genres, ...work.tags]" :key="g">{{ g }}</span></p>
         </div>
       </div>
-      <p v-if="detail.desc" class="desc" lang="en">{{ detail.desc }}</p>
+      <div v-if="detail.desc" class="desc-box">
+        <span v-if="detail.descLang !== 'zh'" class="desc-tag">英文簡介</span>
+        <p class="desc" :class="{ clamp: long && !more }" :lang="detail.descLang === 'zh' ? 'zh-Hant' : 'en'">{{ detail.desc }}</p>
+        <button v-if="long" class="link" :aria-expanded="more" @click="more = !more">{{ more ? '收合' : '展開' }}</button>
+      </div>
       <p v-if="detail.members" class="note">
         其餘集數為頻道會員限定，只能在 YouTube 觀看。
         <a :href="playlistUrl(detail.members)" target="_blank" rel="noopener noreferrer">前往 YouTube</a>

@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-18T05:29:25.756Z",
+ "generatedAt": "2026-11-18T07:42:56.699Z",
  "units": 0,
  "unmatched": [
   {
@@ -471,6 +471,11 @@
    "id": "v-HyQY4dYfjPw",
    "title": "《機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster》 (繁中字幕 | 日語原聲)【Ani-One】",
    "eps": 1
+  },
+  {
+   "id": "PLciCwZp6ms38",
+   "title": "《混在末日，独自成仙》A New Way for Sanctification | 腾讯视频 - 动漫",
+   "eps": 2
   },
   {
    "id": "PLOcw1_QyR_8M",
@@ -1048,10 +1053,25 @@
   }
  ],
  "dropped": [],
+ "desc": {
+  "muse": {
+   "zh": 286,
+   "en": 20
+  },
+  "anione": {
+   "zh": 9,
+   "en": 254
+  },
+  "tencent": {
+   "zh": 42,
+   "en": 19
+  }
+ },
+ "epDescSamples": [],
  "counts": {
-  "works": 629,
-  "seasons": 975,
-  "unmatched": 104,
+  "works": 630,
+  "seasons": 976,
+  "unmatched": 105,
   "guessed": 87
  }
 }

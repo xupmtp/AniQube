@@ -12,4 +12,5 @@ export interface Episode { id: string; n: number; title: string; sec: number; ex
 export interface Dub { lang: string; list: string | null; episodes: Episode[] }
 export interface Season { name: string; kind: 'season' | 'collection' | 'special'; dubs: Dub[] }
 // members：有會員限定集時，該季清單的 ID（作品頁連到 YouTube）
-export interface Detail { id: string; desc: string; members: string | null; seasons: Season[] }
+// descLang：zh = 頻道寫的中文簡介，en = 退回 AniList 英文原文
+export interface Detail { id: string; desc: string; descLang?: 'zh' | 'en'; members: string | null; seasons: Season[] }

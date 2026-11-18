@@ -39,7 +39,7 @@ globalThis.fetch = async (url, init) => {
   if (u.hostname === 'graphql.anilist.co') return json({ data: { Page: { media: ANILIST } } });
   const p = u.searchParams, route = u.pathname.split('/').pop();
   if (route === 'playlistItems') { const l = LISTS[p.get('playlistId')]; return l ? json(page(l, p.get('pageToken'))) : json({}, 404); }
-  if (route === 'playlists') return json({ items: (PLAYLISTS[p.get('channelId')] ?? []).map(([id, title]) => ({ id, snippet: { title }, contentDetails: { itemCount: LISTS[id].length } })) });
+  if (route === 'playlists') return json({ items: (PLAYLISTS[p.get('channelId')] ?? []).map(([id, title]) => ({ id, snippet: { title, description: `${title} 的簡介\n▶ 訂閱頻道 https://example.com` }, contentDetails: { itemCount: LISTS[id].length } })) });
   if (route === 'videos') {
     return json({ items: p.get('id').split(',').filter((id) => V[id]).map((id) => {
       const [title, sec, x = {}] = V[id];

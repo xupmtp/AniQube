@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { zstdDecompressSync } from 'node:zlib';
-import { buildIndex, buildSeasons, buildStandalones, cleanTitle, dubLabel, groupWorks, match, toTrad } from './lib.mjs';
+import { buildIndex, buildSeasons, buildStandalones, cleanDesc, cleanTitle, dubLabel, groupWorks, match, toTrad } from './lib.mjs';
 import { BLOCKED_GENRES, GENRES, TAGS } from './taxonomy.mjs';
 
 const KEY = process.env.YOUTUBE_API_KEY;
@@ -53,7 +53,7 @@ async function details(ids) {
       for (const x of j?.items ?? []) {
         const rr = x.contentDetails.regionRestriction;
         out.set(x.id, {
-          id: x.id, title: x.snippet.title, at: x.snippet.publishedAt, live: x.snippet.liveBroadcastContent,
+          id: x.id, title: x.snippet.title, desc: x.snippet.description ?? '', at: x.snippet.publishedAt, live: x.snippet.liveBroadcastContent,
           sec: dur(x.contentDetails.duration), views: Number(x.statistics?.viewCount ?? 0),
           embeddable: x.status.embeddable, age: x.contentDetails.contentRating?.ytRating === 'ytAgeRestricted',
           twBlocked: !!rr && ((rr.blocked ?? []).includes('TW') || (rr.allowed && !rr.allowed.includes('TW'))),
@@ -72,7 +72,7 @@ async function fetchChannel(ch) {
   const uploadIds = (await pages('playlistItems', { part: 'contentDetails', playlistId: `UU${idPart}` })).map((i) => i.contentDetails.videoId);
   // 不套任何過濾規則：抓取量只取決於頻道內容，改規則不影響配額，也都能用快取重跑
   const lists = (await pages('playlists', { part: 'snippet,contentDetails', channelId: ch.id }))
-    .map((p) => ({ id: p.id, title: p.snippet.title, n: p.contentDetails.itemCount }))
+    .map((p) => ({ id: p.id, title: p.snippet.title, desc: p.snippet.description ?? '', n: p.contentDetails.itemCount })) // desc：中文簡介的來源（docs/features.md）
     .filter((p) => p.n > 0);
   for (const p of lists) p.videoIds = (await pages('playlistItems', { part: 'contentDetails', playlistId: p.id })).map((i) => i.contentDetails.videoId);
   const need = new Set([...uploadIds, ...lists.flatMap((p) => p.videoIds)].filter((id) => !members.includes(id)));
@@ -154,6 +154,7 @@ const genresOf = (a) => (a?.genres ?? []).filter((g) => GENRES[g]).map((g) => GE
 const tagsOf = (a) => (a?.tags ?? []).filter((t) => !t.isMediaSpoiler && t.rank >= 60 && TAGS[t.name]).map((t) => TAGS[t.name]);
 const SEASON_IDX = { WINTER: 0, SPRING: 1, SUMMER: 2, FALL: 3 };
 const airTime = (a, e) => { const y = a?.seasonYear ?? e?.animeSeason?.year; return y ? y * 10 + (SEASON_IDX[a?.season ?? e?.animeSeason?.season] ?? 0) : null; };
+const videoDesc = new Map(cfg.channels.flatMap((ch) => fetched[ch.key].videos.map((v) => [v.id, v.desc ?? ''])));
 const items = [];
 raw.forEach((s, order) => {
   const a = s.link ? meta.get(s.link.anilistId) : null;
@@ -163,7 +164,7 @@ raw.forEach((s, order) => {
     id: s.playlistId, name: s.channel.origin === 'CN' ? toTrad(name) : name, rawTitle: s.rawTitle, single: !!s.single, order,
     channel: s.channel, lang, original: lang === ORIGINAL[s.channel.origin], members: s.members ?? 0, aid: s.link?.anilistId ?? null,
     when: airTime(a, s.link?.entry),
-    episodes: s.episodes, a, entry: s.link?.entry, link: s.link,
+    episodes: s.episodes, a, entry: s.link?.entry, link: s.link, desc: s.desc ?? '', epDesc: videoDesc.get(s.episodes[0]?.id) ?? '',
   });
   if (!s.link) report.unmatched.push({ id: s.playlistId, title: s.rawTitle, eps: s.episodes.length });
   else if (['first', 'season', 'split'].includes(s.link.how)) report.guessed.push({ id: s.playlistId, title: s.rawTitle, anilistId: s.link.anilistId, how: s.link.how });
@@ -198,9 +199,12 @@ for (const ch of cfg.channels) {
       thumb: latest.episodes[0].id, cover: a?.coverImage?.large ?? null, banner: a?.bannerImage ?? null,
       anilistId: latest.link?.anilistId ?? null, how: latest.link?.how ?? null,
     });
-    const desc = [...all].reverse().map((d) => plain(d.a?.description)).find(Boolean) ?? '';
+    // 簡介：原聲季的頻道播放清單說明（清掉宣傳），沒有就退回 AniList 英文（docs/features.md）
+    const zh = [...main.map(pick), ...all].map((d) => cleanDesc(d.desc)).find(Boolean);
+    const en = [...all].reverse().map((d) => plain(d.a?.description)).find(Boolean) ?? '';
+    const desc = zh ? (ch.origin === 'CN' ? toTrad(zh) : zh) : en.slice(0, 300);
     workFiles.push({
-      id, desc: desc.slice(0, 300), members: main.map(pick).find((d) => d.members > 0)?.id ?? null,
+      id, desc, descLang: zh ? 'zh' : 'en', members: main.map(pick).find((d) => d.members > 0)?.id ?? null,
       seasons: w.seasons.map((x) => ({
         name: x.name, kind: x.kind,
         dubs: [...x.dubs].sort((p, q) => (q.lang === orig) - (p.lang === orig)).map((d) => ({
@@ -212,6 +216,16 @@ for (const ch of cfg.channels) {
 }
 
 // 保護：片庫一次縮水超過三成視為異常，不覆蓋（舊格式沒有 works，視為第一次）
+// 簡介統計；Ani-One 播放清單幾乎沒寫說明，先抽樣第 1 集影片說明，看過品質再決定要不要用
+report.desc = {};
+for (const ch of cfg.channels) {
+  const mine = workFiles.filter((d) => works.find((w) => w.id === d.id)?.channel === ch.key);
+  report.desc[ch.key] = { zh: mine.filter((d) => d.descLang === 'zh').length, en: mine.filter((d) => d.descLang === 'en').length };
+}
+report.epDescSamples = workFiles.filter((d) => d.descLang === 'en' && works.find((w) => w.id === d.id)?.channel === 'anione')
+  .map((d) => ({ title: works.find((w) => w.id === d.id).title, desc: cleanDesc(items.find((it) => it.id === d.seasons.find((x) => x.kind !== 'special')?.dubs[0]?.list)?.epDesc) }))
+  .filter((x) => x.desc).slice(0, 20);
+
 const prev = existsSync(`${OUT}/index.json`) ? JSON.parse(readFileSync(`${OUT}/index.json`, 'utf8')).works?.length ?? 0 : 0;
 if (prev && works.length < prev * 0.7) throw new Error(`片庫從 ${prev} 部縮到 ${works.length} 部，疑似異常，中止且不更新`);
 

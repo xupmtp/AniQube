@@ -49,4 +49,6 @@ test('run.mjs 端對端（假資料）', () => {
   assert.deepEqual(rep.unmatched.map((x) => x.id), ['v-movieA']);
   assert.deepEqual(rep.dropped.map((x) => x.id), ['plA3']);
   assert.ok(rep.units < 60, `額度用量 ${rep.units}`);
+  assert.equal(detail.descLang, 'en');                                           // 清單說明清完太短 → 退回 AniList 英文
+  assert.deepEqual(rep.desc.a, { zh: 0, en: 2 });
 });
