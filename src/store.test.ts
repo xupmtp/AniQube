@@ -1,0 +1,16 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { hasNew, markSeen, myList, progress, seen, setProgress, toggleList } from './store.ts';
+
+test('hasNew：只看片單與繼續觀看裡的作品，以上次看到時的更新時間為基準', () => {
+  const w = (id: string, updated: string) => ({ id, updated });
+  assert.equal(hasNew(w('x', '2099-01-01T00:00:00Z')), false);                 // 不在片單也沒看過
+  toggleList('a');                                                              // 加入片單：從現在起算
+  assert.equal(hasNew(w('a', '2000-01-01T00:00:00Z')), false);
+  assert.equal(hasNew(w('a', '2099-01-01T00:00:00Z')), true);
+  markSeen('a', '2099-01-01T00:00:00Z');                                       // 打開作品頁後消失
+  assert.equal(hasNew(w('a', '2099-01-01T00:00:00Z')), false);
+  setProgress('b', 'ep', 100);                                                  // 舊進度沒有基準時，以進度時間起算
+  assert.equal(hasNew(w('b', '2099-01-01T00:00:00Z')), true);
+  myList.splice(0); for (const k of Object.keys(progress)) delete progress[k]; for (const k of Object.keys(seen)) delete seen[k];
+});

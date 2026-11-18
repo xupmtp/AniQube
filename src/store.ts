@@ -14,11 +14,24 @@ export const progress = reactive<Record<string, Progress>>(load('aniqube:progres
 export const myList = reactive<string[]>(load('aniqube:list:works', []));
 watch(progress, () => save('aniqube:progress:works', progress), { deep: true });
 watch(myList, () => save('aniqube:list:works', myList), { deep: true });
+// 有新集的基準：觀看者上次看這部作品時，它的最後更新時間（ISO）；只加進片單、沒看過的，從加入那一刻起算
+export const seen = reactive<Record<string, string>>(load('aniqube:seen:works', {}));
+watch(seen, () => save('aniqube:seen:works', seen), { deep: true });
 
 export const inList = (id: string) => myList.includes(id);
 export function toggleList(id: string) {
   const i = myList.indexOf(id);
-  if (i >= 0) myList.splice(i, 1); else myList.unshift(id);
+  if (i >= 0) myList.splice(i, 1);
+  else { myList.unshift(id); seen[id] ??= new Date().toISOString(); }
 }
 export const setProgress = (id: string, ep: string, t: number) => { progress[id] = { ep, t: Math.floor(t), at: Date.now() }; };
 export const clearProgress = (id: string) => { delete progress[id]; };
+
+/** 打開作品頁或播放頁：基準更新到作品目前的最後更新時間，有新集的標記就消失 */
+export const markSeen = (id: string, updated: string) => { seen[id] = updated; };
+/** 片單或繼續觀看裡的作品，在上次看之後又上架了新的集（見 CONTEXT.md「有新集」） */
+export function hasNew(w: { id: string; updated: string }): boolean {
+  if (!inList(w.id) && !progress[w.id]) return false;
+  const base = seen[w.id] ?? (progress[w.id] ? new Date(progress[w.id].at).toISOString() : null);
+  return !!base && w.updated > base;
+}

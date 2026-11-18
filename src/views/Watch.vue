@@ -5,7 +5,7 @@ import { epTitle, fmtDur, ytUrl } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
 import { loadYT } from '../player.ts';
 import type { YTPlayer } from '../player.ts';
-import { clearProgress, progress, setProgress } from '../store.ts';
+import { clearProgress, markSeen, progress, setProgress } from '../store.ts';
 import type { Detail } from '../types.ts';
 import { epAt, episodeRows, firstSpot, locate, nextSpot, switchDub } from '../work.ts';
 import type { Spot } from '../work.ts';
@@ -22,7 +22,9 @@ let player: YTPlayer | null = null;
 watch(id, async (v) => {
   detail.value = null;
   try {
-    title.value = (await loadCatalog()).works.find((w) => w.id === v)?.title ?? '';
+    const w = (await loadCatalog()).works.find((x) => x.id === v);
+    title.value = w?.title ?? '';
+    if (w) markSeen(v, w.updated);
     detail.value = await loadDetail(v);
   } catch { router.replace('/'); } // 已下架，或舊版以季為單位的網址
 }, { immediate: true });

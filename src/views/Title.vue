@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { epTitle, fmtDur, metaLine, playlistUrl, posterOf } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
-import { inList, progress, toggleList } from '../store.ts';
+import { inList, markSeen, progress, toggleList } from '../store.ts';
 import type { Detail, Work } from '../types.ts';
 import { episodeRows, firstSpot, locate } from '../work.ts';
 
@@ -23,6 +23,7 @@ watch(id, async (v) => {
     const at = locate(det, progress[v]?.ep ?? '');
     sel.value = at && det.seasons[at.s].kind !== 'special' ? { s: at.s, d: at.d } : { s: firstSpot(det).s, d: 0 };
     detail.value = det;
+    markSeen(v, work.value.updated);
   } catch { router.replace('/'); } // 已下架，或舊版以季為單位的網址
 }, { immediate: true });
 

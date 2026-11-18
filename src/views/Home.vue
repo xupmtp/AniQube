@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { emptyFilters, filterWorks, pickHero, sortWorks, topGenres } from '../catalog.ts';
 import { loadCatalog } from '../data.ts';
-import { myList, progress } from '../store.ts';
+import { hasNew, myList, progress } from '../store.ts';
 import type { Catalog, Work } from '../types.ts';
 import Hero from '../components/Hero.vue';
 import Row from '../components/Row.vue';
@@ -19,6 +19,8 @@ const hero = computed(() => pickHero(works.value));
 const known = (ids: string[]) => ids.map((id) => byId.value.get(id)).filter((s): s is Work => !!s); // 已下架的作品靜默略過
 const resume = computed(() => known(Object.entries(progress).sort((a, b) => b[1].at - a[1].at).map(([id]) => id)));
 const mine = computed(() => known(myList));
+// 片單有更新：片單與繼續觀看裡有新集的作品，最新上架的在前
+const fresh = computed(() => sortWorks(known([...new Set([...myList, ...Object.keys(progress)])]).filter(hasNew), 'updated'));
 
 const top = (list: Work[], key: Parameters<typeof sortWorks>[1]) => sortWorks(list, key).slice(0, 24);
 const rows = computed(() => {
@@ -42,6 +44,7 @@ const rows = computed(() => {
     <Hero v-if="hero" :work="hero" />
     <div class="rows" :class="{ nohero: !hero }">
       <Row title="繼續觀看" :works="resume" resume />
+      <Row title="片單有更新" :works="fresh" />
       <Row title="我的片單" :works="mine" />
       <Row v-for="r in rows" :key="r.title" :title="r.title" :works="r.list" :more="r.more" :ranked="'ranked' in r" />
     </div>

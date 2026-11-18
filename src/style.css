@@ -95,6 +95,7 @@ main { min-height: calc(100vh - 120px); }
 .card:hover .thumb img { transform: scale(1.06); }
 .badge { position: absolute; top: var(--s2); right: var(--s2); padding: 2px 8px; border-radius: 6px; background: #0f0d0cd9; font-size: var(--fs-xs); font-weight: 700; color: var(--kin); font-variant-numeric: tabular-nums; }
 .badge.resume { right: auto; left: var(--s2); background: var(--shu); color: #fff; }
+.badge.new { top: auto; bottom: var(--s2); right: auto; left: var(--s2); background: var(--kin); color: #2a1f08; }
 .info { padding: var(--s3) var(--s3) var(--s4); display: grid; gap: 2px; }
 .info strong { font-size: 15px; font-weight: 700; line-height: 1.45; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
 .info small { color: var(--mute); font-size: var(--fs-xs); line-height: 1.6; font-variant-numeric: tabular-nums; }
