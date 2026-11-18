@@ -172,9 +172,14 @@ test('groupWorks：分季、配音版、合輯、單篇', () => {
   assert.deepEqual(hunter[1].dubs.map((d) => d.id), ['mv', 'mv2']);                   // 單篇也配配音版
   assert.deepEqual(by['佐佐木'].seasons.map((s) => s.name), ['佐佐木 第一季', '佐佐木 第二季']);
   const colls = groupWorks([it('a', '某作', { raw: '某作(全部集數)', eps: ['1', '2', '3'] }), it('b', '某作S1-S2', { raw: '某作S1-S2', eps: ['1', '2'] }), it('c', '某作 第二季', { eps: ['2'] })]);
-  assert.deepEqual(colls[0].seasons.map((s) => s.name), ['某作', '某作 第二季']);       // 被別的合輯涵蓋的合輯也不列
-    const keep = groupWorks([it('p', '佐佐木', { eps: ['x1', 'x2', 'x3', 'x4'] }), it('q', '佐佐木 第二季', { eps: ['x3'] })]);
-  assert.deepEqual(keep[0].seasons.map((s) => [s.name, s.kind]), [['佐佐木', 'collection'], ['佐佐木 第二季', 'season']]); // 合輯有單季沒有的集 → 保留
+  assert.deepEqual(colls[0].seasons.map((s) => [s.name, s.kind]), [['某作', 'season'], ['某作', 'collection'], ['某作 第二季', 'season']]); // 小合輯拆出第一季後被涵蓋 → 不列；大合輯還有第 3 集 → 保留
+  const keep = groupWorks([it('p', '佐佐木', { eps: ['x1', 'x2', 'x3', 'x4', 'x5'] }), it('q', '佐佐木 第二季', { eps: ['x3'] })]);
+  // 開頭單季沒有的集拆成第一季；拆完合輯還有單季沒有的集（x4、x5）→ 合輯保留
+  assert.deepEqual(keep[0].seasons.map((s) => [s.name, s.kind, s.dubs[0].episodes.map((e) => e.id).join()]),
+    [['佐佐木', 'season', 'x1,x2'], ['佐佐木', 'collection', 'x1,x2,x3,x4,x5'], ['佐佐木 第二季', 'season', 'x3']]);
+  const s1 = groupWorks([it('m', '無職(全集數)', { raw: '無職(全集數)', eps: ['a', 'b', 'c', 'd'] }), it('n', '無職 第2季', { eps: ['c', 'd'] })]);
+  assert.deepEqual(s1[0].seasons.map((s) => [s.name, s.kind]), [['無職', 'season'], ['無職 第2季', 'season']]); // 第一季拆出來後合輯全被涵蓋 → 不列
+  assert.equal(groupWorks([it('r', '平凡S2-S3', { raw: '平凡S2-S3', eps: ['a', 'b'] }), it('t', '平凡 S3', { eps: ['b'] })])[0].seasons[0].name, '平凡 第2季'); // 合輯從第幾季開始
   assert.equal(groupWorks([it('z', '某作 第二季')], { z: '另一部' })[0].base, '另一部');   // 人工作品對應表
 });
 

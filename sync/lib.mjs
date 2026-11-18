@@ -315,6 +315,21 @@ export function groupWorks(items, override = {}, related = {}) {
   return out.map(({ key, base, groups }) => {
     let gs = [...groups.values()].filter((g) => !g.special).map((g) => ({ ...g, ids: ids(g) }));
     for (const g of gs) if (!g.coll) g.coll = gs.some((o) => o !== g && o.ids.size < g.ids.size && [...o.ids].every((x) => g.ids.has(x)));
+    // 合輯開頭那段單季都沒有的集，通常是頻道沒另外開清單的第一季（無職、進擊的巨人）：拆成一季，跟其他季一樣能選
+    const inSeasons = new Set(gs.filter((g) => !g.coll).flatMap((g) => [...g.ids]));
+    const lead = (d) => { const i = d.episodes.findIndex((e) => inSeasons.has(e.id)); return i < 0 ? d.episodes.length : i; };
+    // 開頭就是別季的集、或整份都沒有別季的集不拆；有好幾份合輯時取開頭那段最長的（有的合輯缺集，只拆得出半季）
+    const cut = gs.filter((g) => g.coll).map((g) => {
+      const orig = [...g.dubs.values()].find((d) => d.original) ?? [...g.dubs.values()][0];
+      return { g, k: lead(orig), len: orig.episodes.length };
+    }).filter((c) => c.k > 0 && c.k < c.len).sort((a, b) => b.k - a.k || b.g.dubs.size - a.g.dubs.size)[0];
+    if (cut) {
+      const { g, k } = cut, dubs = new Map();
+      // 其他配音版也取開頭那段；整份都沒有別季的集、又比原聲那段長很多的（國語版全集）留在合輯
+      for (const [l, d] of g.dubs) { const n = lead(d); if (n && (n < d.episodes.length || n <= k + 2)) dubs.set(l, { ...d, episodes: d.episodes.slice(0, n) }); }
+      const no = seasonNo(g.name) ?? 1;
+      gs.push({ name: no === 1 ? base : `${base} 第${no}季`, special: false, coll: false, dubs, order: g.order - 0.5, ids: ids({ dubs }) }); // 排在原合輯前面
+    }
     const kept = new Set(gs);
     for (const g of gs.filter((x) => x.coll).sort((x, y) => x.ids.size - y.ids.size)) {
       const others = new Set([...kept].filter((o) => o !== g).flatMap((o) => [...o.ids]));

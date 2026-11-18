@@ -201,7 +201,7 @@ for (const ch of cfg.channels) {
     });
     // 簡介：原聲季的頻道播放清單說明（清掉宣傳），沒有就退回 AniList 英文（docs/features.md）
     const zh = [...main.map(pick), ...all].map((d) => cleanDesc(d.desc)).find(Boolean);
-    const en = [...all].reverse().map((d) => plain(d.a?.description)).find(Boolean) ?? '';
+    const en = all.map((d) => plain(d.a?.description)).find(Boolean) ?? '';
     const desc = zh ? (ch.origin === 'CN' ? toTrad(zh) : zh) : en.slice(0, 300);
     workFiles.push({
       id, desc, descLang: zh ? 'zh' : 'en', members: main.map(pick).find((d) => d.members > 0)?.id ?? null,
