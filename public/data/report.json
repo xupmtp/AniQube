@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-18T07:46:23.835Z",
+ "generatedAt": "2026-11-18T09:03:57.113Z",
  "units": 0,
  "unmatched": [
   {
@@ -316,11 +316,6 @@
    "id": "PLcsS6p8iu5r4",
    "title": "📈《FX戰士久留美》(繁中字幕)【Ani-One】｜2026年10月新番",
    "eps": 7
-  },
-  {
-   "id": "PLByqFjYQImUs",
-   "title": "🏫《擅長捉弄人的高木同學》(繁中字幕)【Ani-One】",
-   "eps": 12
   },
   {
    "id": "PLZaIVcglWwxc",
@@ -1060,7 +1055,7 @@
   },
   "anione": {
    "zh": 10,
-   "en": 253
+   "en": 252
   },
   "tencent": {
    "zh": 44,
@@ -1069,9 +1064,9 @@
  },
  "epDescSamples": [],
  "counts": {
-  "works": 630,
-  "seasons": 976,
-  "unmatched": 105,
+  "works": 629,
+  "seasons": 974,
+  "unmatched": 104,
   "guessed": 87
  }
 }
