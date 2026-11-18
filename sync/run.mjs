@@ -135,10 +135,9 @@ else {
   mkdirSync('sync/cache', { recursive: true });
   writeFileSync(rawCache, JSON.stringify(fetched));
 }
-const raw = cfg.channels.flatMap((ch) => {
-  if (!fetched[ch.key]) throw new Error(`快取裡沒有頻道 ${ch.name}，請不加 USE_RAW_CACHE 完整跑一次`);
-  return buildChannel(ch, fetched[ch.key]);
-});
+// 快取裡還沒有的頻道（剛加進 sources.json、還沒完整同步過）先略過，下次完整同步就會有
+const channels = cfg.channels.filter((ch) => fetched[ch.key] || console.warn(`快取裡沒有頻道 ${ch.name}，先略過；不加 USE_RAW_CACHE 完整跑一次就會有`));
+const raw = channels.flatMap((ch) => buildChannel(ch, fetched[ch.key]));
 
 // 對應：人工對應表優先（null = 刻意不對應），其次自動
 for (const s of raw) {
@@ -154,7 +153,7 @@ const genresOf = (a) => (a?.genres ?? []).filter((g) => GENRES[g]).map((g) => GE
 const tagsOf = (a) => (a?.tags ?? []).filter((t) => !t.isMediaSpoiler && t.rank >= 60 && TAGS[t.name]).map((t) => TAGS[t.name]);
 const SEASON_IDX = { WINTER: 0, SPRING: 1, SUMMER: 2, FALL: 3 };
 const airTime = (a, e) => { const y = a?.seasonYear ?? e?.animeSeason?.year; return y ? y * 10 + (SEASON_IDX[a?.season ?? e?.animeSeason?.season] ?? 0) : null; };
-const videoDesc = new Map(cfg.channels.flatMap((ch) => fetched[ch.key].videos.map((v) => [v.id, v.desc ?? ''])));
+const videoDesc = new Map(channels.flatMap((ch) => fetched[ch.key].videos.map((v) => [v.id, v.desc ?? ''])));
 const items = [];
 raw.forEach((s, order) => {
   const a = s.link ? meta.get(s.link.anilistId) : null;
@@ -172,14 +171,34 @@ raw.forEach((s, order) => {
 
 // 作品：卡片顯示最新一季的資料、年份用首季；篩選與搜尋用所有季的聯集（docs/adr/0003）
 // AniList 續集／前傳：名稱差很多的續作（「續」「完」「The Final Season」）靠這個併進同一部作品
-const related = {};
-for (const [id, m] of meta) related[id] = (m.relations?.edges ?? []).filter((e) => e.relationType === 'SEQUEL' || e.relationType === 'PREQUEL').map((e) => e.node.id);
+const related = {}, apart = {};
+const rel = (m, types) => (m.relations?.edges ?? []).filter((e) => types.includes(e.relationType)).map((e) => e.node.id);
+for (const [id, m] of meta) {
+  related[id] = rel(m, ['SEQUEL', 'PREQUEL']);
+  apart[id] = rel(m, ['SPIN_OFF', 'SIDE_STORY', 'ALTERNATIVE', 'PARENT']); // 模糊比對不併：外傳、衍生、平行作品
+}
+
+// 片源排序：同一季有好幾個頻道時，站內能播的集數多的排前面（預設播放），其次集數，再其次 sources.json 的頻道順序；
+// 同一片源內原聲排第一
+const chRank = (d) => cfg.channels.findIndex((c) => c.key === d.channel.key);
+function sortDubs(dubs) {
+  const score = new Map();
+  for (const d of dubs) {
+    const s = score.get(d.channel.key) ?? [0, 0];
+    score.set(d.channel.key, [Math.max(s[0], d.episodes.filter((e) => !e.ext).length), Math.max(s[1], d.episodes.length)]);
+  }
+  const key = (d) => score.get(d.channel.key);
+  return [...dubs].sort((p, q) => key(q)[0] - key(p)[0] || key(q)[1] - key(p)[1] || chRank(p) - chRank(q) || q.original - p.original);
+}
 
 const works = [], workFiles = [];
-for (const ch of cfg.channels) {
-  for (const w of groupWorks(items.filter((it) => it.channel.key === ch.key), manualWorks, related)) {
-    const orig = ORIGINAL[ch.origin];
-    const pick = (season) => season.dubs.find((d) => d.lang === orig) ?? season.dubs[0];
+report.fuzzy = [];
+{
+  for (const w0 of groupWorks(items, manualWorks, related, apart, report.fuzzy)) {
+    const w = { ...w0, seasons: w0.seasons.map((x) => ({ ...x, dubs: sortDubs(x.dubs) })) };
+    // 作品歸在 sources.json 最前面的那個頻道（作品 ID 用它算，加新頻道時舊作品的 ID 不變）
+    const ch = w.seasons.flatMap((x) => x.dubs).map((d) => d.channel).sort((p, q) => chRank({ channel: p }) - chRank({ channel: q }))[0];
+    const pick = (season) => season.dubs[0];
     const main = w.seasons.filter((x) => x.kind !== 'special');
     const first = pick(main[0] ?? w.seasons[0]), latest = pick(main.at(-1) ?? w.seasons.at(-1));
     const all = w.seasons.flatMap((x) => x.dubs), a = latest.a, e = latest.entry;
@@ -200,15 +219,15 @@ for (const ch of cfg.channels) {
       anilistId: latest.link?.anilistId ?? null, how: latest.link?.how ?? null,
     });
     // 簡介：原聲季的頻道播放清單說明（清掉宣傳），沒有就退回 AniList 英文（docs/features.md）
-    const zh = [...main.map(pick), ...all].map((d) => cleanDesc(d.desc)).find(Boolean);
+    const zd = [...main.map(pick), ...all].find((d) => cleanDesc(d.desc)), zh = zd && cleanDesc(zd.desc);
     const en = all.map((d) => plain(d.a?.description)).find(Boolean) ?? '';
-    const desc = zh ? (ch.origin === 'CN' ? toTrad(zh) : zh) : en.slice(0, 300);
+    const desc = zh ? (zd.channel.origin === 'CN' ? toTrad(zh) : zh) : en.slice(0, 300);
     workFiles.push({
       id, desc, descLang: zh ? 'zh' : 'en', members: main.map(pick).find((d) => d.members > 0)?.id ?? null,
       seasons: w.seasons.map((x) => ({
         name: x.name, kind: x.kind,
-        dubs: [...x.dubs].sort((p, q) => (q.lang === orig) - (p.lang === orig)).map((d) => ({
-          lang: d.lang, list: d.single ? null : d.id, episodes: d.episodes.map(({ id: v, n, title, sec, ext }) => ({ id: v, n, title, sec, ext })),
+        dubs: x.dubs.map((d) => ({
+          lang: d.lang, ch: d.channel.key, list: d.single ? null : d.id, episodes: d.episodes.map(({ id: v, n, title, sec, ext }) => ({ id: v, n, title, sec, ext })),
         })),
       })),
     });
@@ -229,11 +248,26 @@ report.epDescSamples = workFiles.filter((d) => d.descLang === 'en' && works.find
 const prev = existsSync(`${OUT}/index.json`) ? JSON.parse(readFileSync(`${OUT}/index.json`, 'utf8')).works?.length ?? 0 : 0;
 if (prev && works.length < prev * 0.7) throw new Error(`片庫從 ${prev} 部縮到 ${works.length} 部，疑似異常，中止且不更新`);
 
+// 改了分組規則（例如跨頻道合併）時作品 ID 會變：舊 ID → 新 ID 對照，前端用來轉址、搬移本機紀錄。
+// 舊作品的任一集出現在哪部新作品，就轉到那部；之前的對照一併保留（指向的作品又被併掉就接著轉）
+const oldIndex = existsSync(`${OUT}/index.json`) ? JSON.parse(readFileSync(`${OUT}/index.json`, 'utf8')) : {};
+const newIds = new Set(workFiles.map((d) => d.id));
+const epOwner = new Map(workFiles.flatMap((d) => d.seasons.flatMap((x) => x.dubs.flatMap((b) => b.episodes.map((e) => [e.id, d.id])))));
+const moved = {};
+for (const w of oldIndex.works ?? []) {
+  if (newIds.has(w.id) || !existsSync(`${OUT}/works/${w.id}.json`)) continue;
+  const old = JSON.parse(readFileSync(`${OUT}/works/${w.id}.json`, 'utf8'));
+  const to = old.seasons?.flatMap((x) => x.dubs.flatMap((b) => b.episodes)).map((e) => epOwner.get(e.id)).find(Boolean);
+  if (to) moved[w.id] = to;
+}
+for (const [from, to] of Object.entries(oldIndex.moved ?? {})) if (!newIds.has(from) && !moved[from]) moved[from] = newIds.has(to) ? to : moved[to];
+for (const k of Object.keys(moved)) if (!moved[k]) delete moved[k];
+
 rmSync(`${OUT}/seasons`, { recursive: true, force: true });
 rmSync(`${OUT}/works`, { recursive: true, force: true });
 mkdirSync(`${OUT}/works`, { recursive: true });
 for (const d of workFiles) writeFileSync(`${OUT}/works/${d.id}.json`, JSON.stringify(d));
 const generatedAt = new Date().toISOString();
-writeFileSync(`${OUT}/index.json`, JSON.stringify({ generatedAt, channels: cfg.channels.map(({ key, name }) => ({ key, name })), works }));
-writeFileSync(`${OUT}/report.json`, JSON.stringify({ generatedAt, units, ...report, counts: { works: works.length, seasons: items.length, unmatched: report.unmatched.length, guessed: report.guessed.length } }, null, 1));
+writeFileSync(`${OUT}/index.json`, JSON.stringify({ generatedAt, channels: cfg.channels.map(({ key, name, label }) => ({ key, name, label })), works, moved }));
+writeFileSync(`${OUT}/report.json`, JSON.stringify({ generatedAt, units, ...report, counts: { works: works.length, seasons: items.length, unmatched: report.unmatched.length, guessed: report.guessed.length, fuzzy: report.fuzzy.length, moved: Object.keys(moved).length } }, null, 1));
 console.log(`完成：${works.length} 部作品（${items.length} 個清單），未對應 ${report.unmatched.length}，需覆核 ${report.guessed.length}，用 ${units} 單位，${Math.round((Date.now() - t0) / 1000)} 秒`);

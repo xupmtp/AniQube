@@ -1,3 +1,4 @@
+import { migrateIds } from './store.ts';
 import type { Catalog, Detail } from './types.ts';
 
 const url = (p: string) => `${import.meta.env.BASE_URL}data/${p}`;
@@ -7,7 +8,7 @@ export function loadCatalog(): Promise<Catalog> {
   catalog ??= fetch(url('index.json')).then((r) => {
     if (!r.ok) throw new Error(`片庫載入失敗 (${r.status})`);
     return r.json() as Promise<Catalog>;
-  });
+  }).then((c) => { migrateIds(c.moved ?? {}); return c; });
   return catalog;
 }
 

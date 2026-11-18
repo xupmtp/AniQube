@@ -7,9 +7,11 @@ export interface Work {
   views: number; updated: string; thumb: string; cover: string | null; banner: string | null;
   anilistId: number | null; how: string | null;
 }
-export interface Catalog { generatedAt: string; channels: { key: string; name: string }[]; works: Work[] }
+// moved：分組規則改變（例如跨頻道合併）後，舊作品 ID → 新作品 ID；舊網址轉址、本機紀錄搬移用
+export interface Catalog { generatedAt: string; channels: { key: string; name: string; label?: string }[]; works: Work[]; moved?: Record<string, string> }
 export interface Episode { id: string; n: number; title: string; sec: number; ext: boolean }
-export interface Dub { lang: string; list: string | null; episodes: Episode[] }
+// ch：片源頻道（同一季可能有好幾個頻道上傳，觀看者可以切換）
+export interface Dub { lang: string; ch?: string; list: string | null; episodes: Episode[] }
 export interface Season { name: string; kind: 'season' | 'collection' | 'special'; dubs: Dub[] }
 // members：有會員限定集時，該季清單的 ID（作品頁連到 YouTube）
 // descLang：zh = 頻道寫的中文簡介，en = 退回 AniList 英文原文

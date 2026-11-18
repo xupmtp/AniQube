@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { episodeRows, epAt, firstSpot, locate, nextSpot, switchDub } from './work.ts';
+import { dubIndex, episodeRows, epAt, firstSpot, locate, nextSpot, sourceIndex, sourcesOf, switchDub } from './work.ts';
 import type { Detail, Dub, Season } from './types.ts';
 
 const dub = (lang: string, ...ids: string[]): Dub => ({ lang, list: 'pl', episodes: ids.map((id, i) => ({ id, n: i + 1, title: id, sec: 1440, ext: false })) });
@@ -34,4 +34,23 @@ test('switchDub：同集數，沒有就從第一集', () => {
 
 test('episodeRows：列出其他配音版有、這版沒有的集數', () => {
   assert.deepEqual(episodeRows(det.seasons[0], 1).map((r) => [r.n, r.ep?.id ?? null]), [[1, 't1'], [2, 't2'], [3, null]]);
+});
+
+test('片源：同一季兩個頻道；換片源留在同配音、換季優先同片源', () => {
+  const src = (ch: string, lang: string, ...ids: string[]): Dub => ({ ...dub(lang, ...ids), ch });
+  const two: Detail = {
+    id: 'w', desc: '', members: null, seasons: [
+      season('第一季', 'season', src('anione', '日語', 'a1', 'a2'), src('muse', '日語', 'm1', 'm2', 'm3'), src('muse', '國語', 't1')),
+      season('第二季', 'season', src('muse', '國語', 'u1'), src('muse', '日語', 'n1')),
+    ],
+  };
+  const s0 = two.seasons[0];
+  assert.deepEqual(sourcesOf(s0), ['anione', 'muse']);
+  assert.equal(sourceIndex(s0, 0, 'muse'), 1);                                  // 日語 → muse 的日語
+  assert.equal(sourceIndex(s0, 2, 'anione'), 0);                                // muse 國語 → anione 沒有國語，用它的第一個
+  assert.deepEqual(episodeRows(s0, 0).map((r) => r.n), [1, 2]);                 // 只列這個片源的集數
+  assert.deepEqual(episodeRows(s0, 2).map((r) => [r.n, !!r.ep]), [[1, true], [2, false], [3, false]]);
+  assert.equal(dubIndex(two.seasons[1], '日語', 'muse'), 1);
+  assert.equal(dubIndex(two.seasons[1], '日語', 'anione'), 1);                  // 沒有這個片源：同配音
+  assert.deepEqual(nextSpot(two, { s: 0, d: 1, i: 2 }), { s: 1, d: 1, i: 0 });  // 看完 muse 日語 → 第二季 muse 日語
 });

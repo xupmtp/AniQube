@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clearHistory, clearProgress, exportBackup, hasNew, historyIds, lastWatched, isWatched, markSeen, markWatched, mergeBackup, myList, parseBackup, progress, seen, setProgress, toggleList } from './store.ts';
+import { clearHistory, clearProgress, exportBackup, hasNew, historyIds, lastWatched, isWatched, markSeen, markWatched, mergeBackup, migrateIds, myList, parseBackup, progress, seen, setProgress, toggleList } from './store.ts';
 
 test('hasNew：只看片單與繼續觀看裡的作品，以上次看到時的更新時間為基準', () => {
   const w = (id: string, updated: string) => ({ id, updated });
@@ -49,4 +49,15 @@ test('觀看紀錄：依最後觀看時間排序，移除繼續觀看仍保留�
   assert.ok(historyIds().some((h) => h.id === 'new'));
   clearHistory('new'); clearHistory('old');
   assert.deepEqual(historyIds(), []);
+});
+
+test('migrateIds：作品合併後，舊 ID 的紀錄搬到新 ID，兩邊都有就合併', () => {
+  setProgress('old', 'e2', 50); toggleList('old'); markWatched('old', 'e1'); markWatched('new', 'e9');
+  migrateIds({ old: 'new' });
+  assert.equal(progress.new.ep, 'e2');
+  assert.equal(progress.old, undefined);
+  assert.ok(myList.includes('new') && !myList.includes('old'));
+  assert.ok(isWatched('new', 'e1') && isWatched('new', 'e9'));
+  assert.ok(lastWatched.new > 0 && lastWatched.old === undefined);
+  clearHistory('new'); myList.splice(0);
 });

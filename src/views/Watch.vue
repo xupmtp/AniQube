@@ -9,7 +9,7 @@ import { clearProgress, isWatched, markSeen, markWatched, progress, setProgress,
 import { KEY_HELP, isTyping, keyAction } from '../keys.ts';
 import { clock, pageUrl, share } from '../share.ts';
 import type { Detail } from '../types.ts';
-import { epAt, episodeRows, firstSpot, locate, nextSpot, switchDub } from '../work.ts';
+import { dubIndex, epAt, episodeRows, firstSpot, locate, nextSpot, sourceIndex, sourcesOf, switchDub } from '../work.ts';
 import type { Spot } from '../work.ts';
 
 const route = useRoute();
@@ -19,12 +19,17 @@ const title = ref('');
 const detail = ref<Detail | null>(null);
 const failed = ref(false);
 const wrap = ref<HTMLElement | null>(null);
+const labels = ref<Record<string, string>>({}); // 片源頻道的短名稱
 let player: YTPlayer | null = null;
 
 watch(id, async (v) => {
   detail.value = null;
   try {
-    const w = (await loadCatalog()).works.find((x) => x.id === v);
+    const cat = await loadCatalog();
+    const to = cat.moved?.[v];
+    if (to) { router.replace({ path: `/watch/${enc(to)}/${String(route.params.ep ?? '')}`, query: route.query }); return; } // 作品合併後的舊網址
+    labels.value = Object.fromEntries(cat.channels.map((c) => [c.key, c.label ?? c.name]));
+    const w = cat.works.find((x) => x.id === v);
     title.value = w?.title ?? '';
     if (w) markSeen(v, w.updated);
     detail.value = await loadDetail(v);
@@ -50,11 +55,15 @@ const enc = encodeURIComponent;
 const linkTo = (p: Spot) => `/watch/${enc(id.value)}/${epAt(detail.value!, p).id}`;
 
 function pickDub(d: number) { if (spot.value) router.replace(linkTo(switchDub(detail.value!, spot.value, d))); }
-// 換季沿用目前的配音版，那一季沒有就用原聲
+// 換季沿用目前的片源與配音版，那一季沒有就用原聲
 function pickSeason(s: number) {
-  const lang = season.value?.dubs[spot.value!.d].lang;
-  router.push(linkTo({ s, d: Math.max(0, detail.value!.seasons[s].dubs.findIndex((x) => x.lang === lang)), i: 0 }));
+  const cur = season.value?.dubs[spot.value!.d];
+  router.push(linkTo({ s, d: dubIndex(detail.value!.seasons[s], cur?.lang, cur?.ch), i: 0 }));
 }
+// 片源：換頻道時跳到同一集數；配音選單只列目前片源的
+const sources = computed(() => (season.value ? sourcesOf(season.value) : []));
+const dubOpts = computed(() => season.value?.dubs.map((d, i) => ({ d, i })).filter(({ d }) => d.ch === season.value!.dubs[spot.value!.d].ch) ?? []);
+function pickSource(ch: string) { pickDub(sourceIndex(season.value!, spot.value!.d, ch)); }
 
 function stop() { player?.destroy(); player = null; if (wrap.value) wrap.value.innerHTML = ''; }
 
@@ -195,8 +204,11 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
         <select v-if="seasons.length > 1 && season.kind !== 'special'" :value="spot.s" aria-label="選擇季" @change="pickSeason(Number(($event.target as HTMLSelectElement).value))">
           <option v-for="m in seasons" :key="m.s" :value="m.s">{{ m.x.name }}{{ m.x.kind === 'collection' ? '（合輯）' : '' }}</option>
         </select>
-        <select v-if="season.dubs.length > 1" :value="spot.d" aria-label="選擇配音" @change="pickDub(Number(($event.target as HTMLSelectElement).value))">
-          <option v-for="(d, i) in season.dubs" :key="d.lang" :value="i">{{ d.lang }}配音</option>
+        <select v-if="sources.length > 1" :value="season.dubs[spot.d].ch" aria-label="選擇片源" @change="pickSource(($event.target as HTMLSelectElement).value)">
+          <option v-for="c in sources" :key="c" :value="c">{{ labels[c] ?? c }}</option>
+        </select>
+        <select v-if="dubOpts.length > 1" :value="spot.d" aria-label="選擇配音" @change="pickDub(Number(($event.target as HTMLSelectElement).value))">
+          <option v-for="o in dubOpts" :key="o.i" :value="o.i">{{ o.d.lang }}配音</option>
         </select>
       </div>
       <ol class="eps">

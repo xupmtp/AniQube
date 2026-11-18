@@ -14,7 +14,7 @@ export function cleanTitle(raw) {
   let s = raw.replace(/[\p{Extended_Pictographic}‍️#]/gu, '').replace(/《(期間限定|72小時快閃)》/g, '');
   // 《作品》後緊接的季數要留著，不然各季清單會變成同名卡片
   // 只在「｜」之前找《》：之後常是宣傳尾巴（「｜《劇場版 某》上映」）
-  const m = /《(.+?)》\s*(第[一二三四五六七八九十\d]+季|Season\s*\d+)?/i.exec(s.replace(/[｜|].*$/, ''));
+  const m = /《(.+?)》\s*(第[一二三四五六七八九十\d]+季|Season\s*\d+|\d+(?:st|nd|rd|th)\s*Season)?/i.exec(s.replace(/[｜|].*$/, ''));
   if (m) s = m[2] ? `${m[1]} ${m[2]}` : m[1];
   s = s.replace(/[｜|].*$/, '');
   s = s.replace(/【(Ani-One[^】]*|限時免費公開|國語|日語|粵語[^】]*)】/g, '');
@@ -33,7 +33,7 @@ export function dubLabel(raw) {
 /** 從標題抓季數與年份提示，用來在同名多筆條目中挑一筆 */
 export function parseHints(raw) {
   const hints = { season: null, year: null, movie: /劇場版|剧场版|電影|电影|映畫/.test(raw) };
-  let m = /第\s*([一二三四五六七八九十]|\d+)\s*季/.exec(raw) || /\bS(\d+)/i.exec(raw) || /Season\s*(\d+)/i.exec(raw);
+  let m = /第\s*([一二三四五六七八九十]|\d+)\s*季/.exec(raw) || /\bS(\d+)/i.exec(raw) || /Season\s*(\d+)/i.exec(raw) || /(\d+)(?:st|nd|rd|th)\s*Season/i.exec(raw);
   if (m) hints.season = CJK_NUM[m[1]] ?? Number(m[1]);
   m = /(20\d\d)年\d+月新番/.exec(raw);
   if (m) hints.year = Number(m[1]);
@@ -199,14 +199,17 @@ export function buildStandalones(uploads, usedIds, cfg, ch, members) {
 
 // ── 作品：同一片源頻道內，標題去掉季數與配音標記後相同的季合成一部（docs/adr/0003）──
 
-const SEASON_NO = /第\s*([一二三四五六七八九十\d]+)\s*季|(?<![A-Za-z])S(\d+)(?!\d)|Season\s*(\d+)/i;
-const COLLECTION = /全部集數|全集數|[(（]全[)）]|系列|S\d+\s*[-~+＋]\s*S?\d+|第\s*\d+\s*[+＋]\s*\d+\s*季/i;
+// 季數寫法：第二季、S2、Season 2、2nd Season，以及接在中文後面的羅馬數字（「約會大作戰Ⅴ」「約會大作戰III」）
+const SEASON_NO = /第\s*([一二三四五六七八九十\d]+)\s*季|(?<![A-Za-z])S(\d+)(?!\d)|Season\s*(\d+)|(\d+)(?:st|nd|rd|th)\s*Season|(?<=[^\x00-\x7F]|\s)(II|III|IV|V|VI|Ⅱ|Ⅲ|Ⅳ|Ⅴ|Ⅵ)$/i;
+const ROMAN = { II: 2, III: 3, IV: 4, V: 5, VI: 6, Ⅱ: 2, Ⅲ: 3, Ⅳ: 4, Ⅴ: 5, Ⅵ: 6 };
+const COLLECTION = /全集|全部集數|[(（]全[)）]|系列|S\d+\s*[-~+＋]\s*S?\d+|第\s*\d+\s*[+＋]\s*\d+\s*季/i;
 
 /** 季名 → 季數（沒寫回 null）；「S1-S3」這種範圍取第一個數字 */
 export function seasonNo(name) {
   const m = SEASON_NO.exec(name);
   if (!m) return null;
-  const v = m[1] ?? m[2] ?? m[3];
+  if (m[5]) return ROMAN[m[5].toUpperCase()];
+  const v = m[1] ?? m[2] ?? m[3] ?? m[4];
   return CJK_NUM[v] ?? Number(v);
 }
 
@@ -214,11 +217,22 @@ export function seasonNo(name) {
 export function workBase(name) {
   return name
     .replace(/\s*[(（]?第\s*[一二三四五六七八九十\d]+(?:\s*[+＋]\s*\d+)?\s*季.*$/, '')
-    .replace(/\s*(?<![A-Za-z])(?:S\d+(?:\s*[-~+＋]\s*S?\d+)?|Season\s*\d+|Part\s*\d+)(?!\d).*$/i, '')
+    .replace(/\s*(?<![A-Za-z])(?:S\d+(?:\s*[-~+＋]\s*S?\d+)?|Season\s*\d+|\d+(?:st|nd|rd|th)\s*Season|Part\s*\d+)(?!\d).*$/i, '')
+    .replace(/(?<=[^\x00-\x7F]|\s)(?:II|III|IV|V|VI|Ⅱ|Ⅲ|Ⅳ|Ⅴ|Ⅵ)$/, '')
     .replace(/系列$/, '')
     .replace(/[\s:：\-—～~]+$/, '')
     .trim() || name;
 }
+
+/** 名稱的相鄰兩字集合（正規化後），算 Dice 相似度用 */
+export function bigrams(s) {
+  const t = norm(s), out = new Set();
+  for (let i = 0; i < t.length - 1; i++) out.add(t.slice(i, i + 2));
+  return out;
+}
+/** Dice 相似度：兩邊共有的相鄰兩字 ×2 ÷ 兩邊總數，0～1 */
+export const dice = (a, b) => { let n = 0; for (const x of a) if (b.has(x)) n++; return (2 * n) / (a.size + b.size || 1); };
+const FUZZY = 0.8;
 
 /** 清單標題看得出是多季合輯 */
 export const isCollection = (raw) => COLLECTION.test(raw);
@@ -244,9 +258,12 @@ export function orderSeasons(list) {
  *   order = 頻道清單順序；aid = 對應到的 AniList 編號；when = 首播（年*10+季度，未知為 null）；original = 這份是原聲
  * override: { 清單ID: 作品名 }（人工作品對應表；指定的作品不參與自動合併）
  * related: { AniList編號: [續集／前傳的編號] }
+ * apart: { AniList編號: [外傳、衍生、平行作品的編號] }（模糊比對不併這些）
+ * log: 只靠模糊比對併起來的作品名配對會推進來，列進 report 供覆核
+ * 所有頻道一起分組：同一部動畫不分片源頻道是同一部作品；同一季在不同頻道的清單是那一季的不同片源（item.channel）
  * 回傳 [{ key, base, seasons:[{ name, kind, no, dubs:[item] }] }]，季已排序；kind = season | collection | special
  */
-export function groupWorks(items, override = {}, related = {}) {
+export function groupWorks(items, override = {}, related = {}, apart = {}, log = []) {
   // 1. 標題：作品名相同的歸一部；季名相同、配音不同的是同一季的配音版；同季同配音只留集數最多的（重複上傳）
   const works = new Map();
   const workOf = (base) => {
@@ -257,8 +274,9 @@ export function groupWorks(items, override = {}, related = {}) {
   const addTo = (w, it, special) => {
     const gk = (special ? 'sp:' : '') + norm(it.name);
     const g = w.groups.get(gk) ?? { name: it.name, special, coll: !special && isCollection(it.rawTitle), dubs: new Map(), order: it.order };
-    const cur = g.dubs.get(it.lang);
-    if (!cur || it.episodes.length > cur.episodes.length) g.dubs.set(it.lang, it);
+    const dk = `${it.channel?.key ?? ''}|${it.lang}`; // 片源＋配音
+    const cur = g.dubs.get(dk);
+    if (!cur || it.episodes.length > cur.episodes.length) g.dubs.set(dk, it);
     g.order = Math.min(g.order, it.order);
     w.groups.set(gk, g);
     if (it.id in override) w.pinned = true;
@@ -290,6 +308,17 @@ export function groupWorks(items, override = {}, related = {}) {
   const byAid = new Map();
   list.forEach((w, i) => dubsOf(w).forEach((d) => { if (d.aid) { if (byAid.has(d.aid)) join(i, byAid.get(d.aid)); else byAid.set(d.aid, i); } }));
   list.forEach((w, i) => dubsOf(w).forEach((d) => (related[d.aid] ?? []).forEach((b) => { if (byAid.has(b)) join(i, byAid.get(b)); })));
+  // 模糊：作品名相似度 Dice ≥ 0.8（實測 18 萬組不同作品只有 2 組超過，都是同系列的外傳），AniList 標明是外傳、衍生、平行作品的不併
+  const aids = list.map((w) => new Set(dubsOf(w).map((d) => d.aid).filter(Boolean)));
+  const grams = list.map((w) => bigrams(w.base));
+  const isApart = (a, b) => [...aids[a]].some((x) => [...aids[b]].some((y) => apart[x]?.includes(y) || apart[y]?.includes(x)));
+  for (let a = 0; a < list.length; a++) {
+    for (let b = a + 1; b < list.length; b++) {
+      if (find(a) === find(b) || grams[a].size < 2 || grams[b].size < 2 || dice(grams[a], grams[b]) < FUZZY || isApart(a, b)) continue;
+      join(a, b);
+      if (find(a) === find(b)) log.push([list[a].base, list[b].base]);
+    }
+  }
 
   const merged = new Map();
   list.forEach((w, i) => { const r = find(i); merged.set(r, [...(merged.get(r) ?? []), w]); });

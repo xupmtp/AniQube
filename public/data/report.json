@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-18T09:50:06.799Z",
+ "generatedAt": "2026-11-18T11:36:44.128Z",
  "units": 0,
  "unmatched": [
   {
@@ -40,25 +40,41 @@
  ],
  "guessed": [],
  "dropped": [],
+ "fuzzy": [
+  [
+   "為美好的世界獻上祝福！3",
+   "為美好的世界獻上祝福！2"
+  ]
+ ],
  "desc": {
   "muse": {
-   "zh": 287,
+   "zh": 286,
    "en": 13
   },
   "anione": {
    "zh": 7,
-   "en": 243
+   "en": 242
   },
   "tencent": {
    "zh": 44,
    "en": 12
+  },
+  "mighty": {
+   "zh": 0,
+   "en": 0
+  },
+  "yuewen": {
+   "zh": 0,
+   "en": 0
   }
  },
  "epDescSamples": [],
  "counts": {
-  "works": 606,
-  "seasons": 974,
+  "works": 604,
+  "seasons": 976,
   "unmatched": 7,
-  "guessed": 0
+  "guessed": 0,
+  "fuzzy": 1,
+  "moved": 3
  }
 }

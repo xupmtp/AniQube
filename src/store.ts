@@ -28,6 +28,19 @@ export interface Settings { autoplay: boolean }
 export const settings = reactive<Settings>({ autoplay: true, ...load<Partial<Settings>>('aniqube:settings', {}) });
 watch(settings, () => save('aniqube:settings', settings), { deep: true });
 
+/** 作品 ID 改了（例如跨頻道合併）：把舊 ID 的續播、片單、看過、觀看時間搬到新 ID，兩邊都有就合併 */
+export function migrateIds(moved: Record<string, string>) {
+  for (const [from, to] of Object.entries(moved)) {
+    if (progress[from] && (!progress[to] || progress[from].at > progress[to].at)) progress[to] = progress[from];
+    delete progress[from];
+    const i = myList.indexOf(from);
+    if (i >= 0) { if (myList.includes(to)) myList.splice(i, 1); else myList.splice(i, 1, to); }
+    if (seen[from]) { seen[to] = seen[to] && seen[to] < seen[from] ? seen[to] : seen[from]; delete seen[from]; }
+    if (watched[from]) { watched[to] = [...new Set([...(watched[to] ?? []), ...watched[from]])]; delete watched[from]; }
+    if (lastWatched[from]) { lastWatched[to] = Math.max(lastWatched[to] ?? 0, lastWatched[from]); delete lastWatched[from]; }
+  }
+}
+
 export const inList = (id: string) => myList.includes(id);
 export function toggleList(id: string) {
   const i = myList.indexOf(id);

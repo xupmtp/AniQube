@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -247,4 +247,36 @@ test('match：標題寫第二季、資料集只有前作時標成 noseason（待
   const idx = buildIndex([{ title: 'Ao Ashi', type: 'TV', synonyms: ['青之蘆葦'], animeSeason: { year: 2022 }, sources: ['https://anilist.co/anime/134732'] }]);
   assert.equal(match('⚽️《青之蘆葦 第二季》| 2026年10月新番', idx).how, 'noseason');
   assert.equal(match('青之蘆葦【Ani-One】', idx).how, 'single');
+});
+
+test('groupWorks：模糊比對（Dice ≥ 0.8）、外傳否決、跨頻道片源', () => {
+  const it = (id, name, o = {}) => ({ id, name, rawTitle: name, lang: o.lang ?? '日語', original: true, single: false, order: 0, aid: o.aid ?? null, channel: { key: o.ch ?? 'a' }, episodes: [{ id }] });
+  const log = [];
+  const titles = (ws) => ws.map((w) => w.seasons.map((s) => s.name).sort().join('+')).sort();
+  const ws = groupWorks([
+    it('k1', '為美好的世界獻上祝福！'), it('k3', '為美好的世界獻上祝福！3'),                                   // 名稱只差一個字 → 併
+    it('t1', '關於我轉生變成史萊姆這檔事', { aid: 1 }), it('t2', '關於我轉生變成史萊姆這檔事 轉生史萊姆日記', { aid: 2 }), // AniList 標明是外傳 → 不併
+    // 同系列、不同作品：相似度不到 0.8，不能併（實測時找到的錯併例子）
+    it('b1', 'BanG Dream!'), it('b2', "BanG Dream! It's MyGO!!!!!"), it('l1', 'Love Live!'), it('l2', 'Love Live! Sunshine!!'),
+    it('j1', '怪醫黑傑克TV版'), it('j2', '怪醫黑傑克21'),
+  ], {}, {}, { 2: [1] }, log);
+  assert.deepEqual(titles(ws), ["BanG Dream!", "BanG Dream! It's MyGO!!!!!", 'Love Live!', 'Love Live! Sunshine!!', '怪醫黑傑克21', '怪醫黑傑克TV版',
+    '為美好的世界獻上祝福！+為美好的世界獻上祝福！3', '關於我轉生變成史萊姆這檔事', '關於我轉生變成史萊姆這檔事 轉生史萊姆日記'].sort());
+  assert.deepEqual(log, [['為美好的世界獻上祝福！', '為美好的世界獻上祝福！3']]);
+  // 跨頻道：同名的季是同一季的兩個片源；只有一邊有的季照樣併進同一部作品
+  const x = groupWorks([it('m1', '高木同學', { ch: 'muse' }), it('n1', '高木同學', { ch: 'anione' }), it('m3', '高木同學 第3季', { ch: 'muse' })]);
+  assert.equal(x.length, 1);
+  assert.deepEqual(x[0].seasons.map((s) => [s.name, s.dubs.map((d) => d.channel.key).sort().join()]), [['高木同學', 'anione,muse'], ['高木同學 第3季', 'muse']]);
+});
+
+test('季數寫法：2nd Season、中文後的羅馬數字；「全集」是合輯', () => {
+  assert.equal(seasonNo('地獄模式～無雙～ 2nd Season'), 2);
+  assert.equal(seasonNo('約會大作戰Ⅴ'), 5);
+  assert.equal(seasonNo('約會大作戰III'), 3);
+  assert.equal(seasonNo('SPY×FAMILY'), null);
+  assert.equal(workBase('約會大作戰Ⅴ'), '約會大作戰');
+  assert.equal(workBase('地獄模式～無雙～ 2nd Season'), '地獄模式～無雙');
+  assert.equal(cleanTitle('📓《地獄模式～無雙～》2nd Season｜2026年7月新番｜曼迪Mighty TV'), '地獄模式～無雙～ 2nd Season');
+  assert.equal(cleanTitle('🌟【官方Official】🌟《仙迹寻踪》Tracing the Divine | 从无家可归到玄门至尊！| 阅文动漫'), '仙迹寻踪');
+  assert.ok(isCollection('🐸《KERORO軍曹》TV全集（雙語）｜曼迪Mighty TV'));
 });

@@ -5,7 +5,7 @@ import { epTitle, fmtDur, metaLine, playlistUrl, posterOf } from '../catalog.ts'
 import { loadCatalog, loadDetail } from '../data.ts';
 import { clearHistory, inList, isWatched, markSeen, progress, toggleList, watched } from '../store.ts';
 import type { Detail, Work } from '../types.ts';
-import { episodeRows, firstSpot, locate } from '../work.ts';
+import { dubIndex, episodeRows, firstSpot, locate, sourceIndex, sourcesOf } from '../work.ts';
 import { pageUrl, share } from '../share.ts';
 
 const route = useRoute();
@@ -14,11 +14,16 @@ const id = computed(() => String(route.params.id));
 const work = ref<Work | null>(null);
 const detail = ref<Detail | null>(null);
 const sel = ref({ s: 0, d: 0 }); // 正在看哪一季、哪個配音版的集數列表
+const labels = ref<Record<string, string>>({}); // 片源頻道的短名稱
 
 watch(id, async (v) => {
   work.value = null; detail.value = null;
   try {
-    work.value = (await loadCatalog()).works.find((w) => w.id === v) ?? null;
+    const cat = await loadCatalog();
+    const to = cat.moved?.[v];
+    if (to) { router.replace(`/title/${encodeURIComponent(to)}`); return; } // 作品合併後的舊網址
+    labels.value = Object.fromEntries(cat.channels.map((c) => [c.key, c.label ?? c.name]));
+    work.value = cat.works.find((w) => w.id === v) ?? null;
     if (!work.value) throw new Error('missing');
     const det = await loadDetail(v);
     const at = locate(det, progress[v]?.ep ?? '');
@@ -35,11 +40,15 @@ const specials = computed(() => indexed.value.filter(({ x }) => x.kind === 'spec
 const season = computed(() => detail.value?.seasons[sel.value.s]);
 const rows = computed(() => (season.value ? episodeRows(season.value, sel.value.d) : []));
 
-// 換季時沿用目前的配音版，那一季沒有就用原聲
+// 換季時沿用目前的片源與配音版，那一季沒有就用原聲
 function pickSeason(s: number) {
-  const lang = season.value?.dubs[sel.value.d]?.lang;
-  sel.value = { s, d: Math.max(0, detail.value!.seasons[s].dubs.findIndex((d) => d.lang === lang)) };
+  const cur = season.value?.dubs[sel.value.d];
+  sel.value = { s, d: dubIndex(detail.value!.seasons[s], cur?.lang, cur?.ch) };
 }
+// 片源：同一季有好幾個頻道上傳時可以切換；配音選單只列目前片源的
+const sources = computed(() => (season.value ? sourcesOf(season.value) : []));
+const dubOpts = computed(() => season.value?.dubs.map((d, i) => ({ d, i })).filter(({ d }) => d.ch === season.value!.dubs[sel.value.d].ch) ?? []);
+function pickSource(ch: string) { sel.value = { ...sel.value, d: sourceIndex(season.value!, sel.value.d, ch) }; }
 // 簡介預設 4 行，長的可以展開（換作品時收回）
 const more = ref(false);
 watch(id, () => { more.value = false; });
@@ -84,8 +93,11 @@ const enc = encodeURIComponent;
           <select v-if="main.length > 1" :value="sel.s" aria-label="選擇季" @change="pickSeason(Number(($event.target as HTMLSelectElement).value))">
             <option v-for="m in main" :key="m.s" :value="m.s">{{ m.x.name }}{{ m.x.kind === 'collection' ? '（合輯）' : '' }}</option>
           </select>
-          <select v-if="season.dubs.length > 1" v-model.number="sel.d" aria-label="選擇配音">
-            <option v-for="(d, i) in season.dubs" :key="d.lang" :value="i">{{ d.lang }}配音</option>
+          <select v-if="sources.length > 1" :value="season.dubs[sel.d].ch" aria-label="選擇片源" @change="pickSource(($event.target as HTMLSelectElement).value)">
+            <option v-for="c in sources" :key="c" :value="c">{{ labels[c] ?? c }}</option>
+          </select>
+          <select v-if="dubOpts.length > 1" v-model.number="sel.d" aria-label="選擇配音">
+            <option v-for="o in dubOpts" :key="o.i" :value="o.i">{{ o.d.lang }}配音</option>
           </select>
         </div>
         <ol class="eps">
@@ -105,10 +117,10 @@ const enc = encodeURIComponent;
           <li v-for="sp in specials" :key="sp.s">
             <RouterLink :to="`/watch/${enc(work.id)}/${sp.x.dubs[0].episodes[0].id}`">
               <b>▶</b><span>{{ sp.x.name }}</span>
-              <small>{{ fmtDur(sp.x.dubs[0].episodes[0].sec) }}<template v-if="sp.x.dubs.length > 1"> · {{ sp.x.dubs[0].lang }}</template></small>
+              <small>{{ fmtDur(sp.x.dubs[0].episodes[0].sec) }}<template v-if="sp.x.dubs.length > 1"> · {{ sp.x.dubs[0].lang }}<template v-if="sourcesOf(sp.x).length > 1"> · {{ labels[sp.x.dubs[0].ch ?? ''] }}</template></template></small>
             </RouterLink>
             <RouterLink v-for="d in sp.x.dubs.slice(1)" :key="d.lang" class="alt-dub" :to="`/watch/${enc(work.id)}/${d.episodes[0].id}`">
-              <b></b><span>{{ d.lang }}配音</span><small>{{ fmtDur(d.episodes[0].sec) }}</small>
+              <b></b><span>{{ d.lang }}配音<template v-if="sourcesOf(sp.x).length > 1"> · {{ labels[d.ch ?? ''] }}</template></span><small>{{ fmtDur(d.episodes[0].sec) }}</small>
             </RouterLink>
           </li>
         </ol>

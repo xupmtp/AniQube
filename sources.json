@@ -1,14 +1,16 @@
 {
   "channels": [
-    { "key": "muse",    "id": "UCgdwtyqBunlRb-i-7PnCssQ", "name": "Muse木棉花-TW",          "origin": "JP", "minSec": 120 },
-    { "key": "anione",  "id": "UC45ONEZZfMDZCnEhgYmVu-A", "name": "Ani-One中文官方動畫頻道", "origin": "JP", "minSec": 120 },
-    { "key": "tencent", "id": "UCdpiId0eJGnnIvfhpbJIM1w", "name": "騰訊視頻動畫",           "origin": "CN", "minSec": 900, "memberMarkers": "" }
+    { "key": "muse",    "id": "UCgdwtyqBunlRb-i-7PnCssQ", "name": "Muse木棉花-TW",          "label": "Muse木棉花", "origin": "JP", "minSec": 120 },
+    { "key": "anione",  "id": "UC45ONEZZfMDZCnEhgYmVu-A", "name": "Ani-One中文官方動畫頻道", "label": "Ani-One", "origin": "JP", "minSec": 120 },
+    { "key": "tencent", "id": "UCdpiId0eJGnnIvfhpbJIM1w", "name": "騰訊視頻動畫",           "label": "騰訊視頻", "origin": "CN", "minSec": 900, "memberMarkers": "" },
+    { "key": "mighty",  "id": "UCCrpNwDnc_ULP3tjUQsCkag", "name": "曼迪Mighty TV動畫頻道",   "label": "曼迪", "origin": "JP", "minSec": 300 },
+    { "key": "yuewen",  "id": "UCM5qb75ErC1JMmdgWjN8HJA", "name": "閱文動畫官方頻道",       "label": "閱文動畫", "origin": "CN", "minSec": 300 }
   ],
   "maxSec": 10800,
   "standaloneMinSec": 1200,
   "standaloneAllow": "劇場版|剧场版|電影|电影|OVA|OAD|特別篇|特别篇|總集篇|总集篇|Special Edition|映畫",
   "standaloneDeny": "Gossip|漫漫聊|夜放送|開箱|猜謎|回顧|特典|假面騎士|戰隊|橡果兄弟",
-  "titleDeny": "預告|预告|宣傳|宣传|花絮|精華|精华|集錦|集锦|Trailer|Teaser|Highlights?|\\bClips?\\b|\\bPV\\b|\\bCM\\b|#shorts|直播|馬拉松|marathon|OPED|週邊|周边|專區|专区|合集|最新動畫資訊|動畫資訊|專訪|訪談|懶人包|同時視聽|連播系列|音樂會|Ani-Music-One|自家製節目|學日文",
+  "titleDeny": "預告|预告|宣傳|宣传|花絮|精華|精华|集錦|集锦|Trailer|Teaser|Highlights?|\\bClips?\\b|\\bPV\\b|\\bCM\\b|#shorts|直播|馬拉松|marathon|OPED|週邊|周边|專區|专区|合集|最新動畫資訊|情報|動畫資訊|專訪|訪談|懶人包|同時視聽|連播系列|音樂會|Ani-Music-One|自家製節目|學日文",
   "memberMarkers": "會員搶先看|会员抢先看|Members Premiere|ULTRA搶先看|ULTRA會員|会员专享|會員專屬|Join Members",
-  "excludeSeasons": ["PLZi7HsS43BmI", "PL12UaAf_xzfqlQ4-mcv1c3pt_F1MGE8h5", "PL12UaAf_xzfo7_iHOgKqXlMqwTwviIXZA", "PL12UaAf_xzfrhFeCy0S--4s7i7KjIjv90", "PLFoowl1JkGK8", "PLByqFjYQImUs"]
+  "excludeSeasons": ["PLZi7HsS43BmI", "PL12UaAf_xzfqlQ4-mcv1c3pt_F1MGE8h5", "PL12UaAf_xzfo7_iHOgKqXlMqwTwviIXZA", "PL12UaAf_xzfrhFeCy0S--4s7i7KjIjv90"]
 }
