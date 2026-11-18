@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-11-18T02:26:20.748Z",
- "units": 3011,
+ "generatedAt": "2026-11-18T02:38:39.173Z",
+ "units": 0,
  "unmatched": [
   {
    "id": "PL12UaAf_xzfpJ5cZMFVbaX8sczJfumXTd",
@@ -56,11 +56,6 @@
    "id": "PL12UaAf_xzfrTd2siVe6bZqjtv5hdLgka",
    "title": "大人的防具店 裏面版｜Muse木棉花 動畫 線上看",
    "eps": 3
-  },
-  {
-   "id": "v-C6d5njvm7Fc",
-   "title": "Love Live! - 劇場版【學園偶像電影】｜《劇場版 Love Live! 蓮之空女學院學園偶像俱樂部 Bloom Garden Party》2026/9/18上映｜Muse木棉花",
-   "eps": 1
   },
   {
    "id": "v-rgeoebNJksk",
@@ -236,11 +231,6 @@
    "id": "v-HyQY4dYfjPw",
    "title": "《機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster》 (繁中字幕 | 日語原聲)【Ani-One】",
    "eps": 1
-  },
-  {
-   "id": "PLciCwZp6ms38",
-   "title": "《混在末日，独自成仙》A New Way for Sanctification | 腾讯视频 - 动漫",
-   "eps": 2
   },
   {
    "id": "PLOcw1_QyR_8M",
@@ -469,6 +459,12 @@
    "how": "first"
   },
   {
+   "id": "v-C6d5njvm7Fc",
+   "title": "Love Live! - 劇場版【學園偶像電影】｜《劇場版 Love Live! 蓮之空女學院學園偶像俱樂部 Bloom Garden Party》2026/9/18上映｜Muse木棉花",
+   "anilistId": 15051,
+   "how": "first"
+  },
+  {
    "id": "v-H3qZdML2U94",
    "title": "【國語】PUI PUI天竺鼠車車 電影版 MOLMAX｜Muse木棉花 動畫 線上看",
    "anilistId": 127690,
@@ -607,12 +603,6 @@
    "how": "season"
   },
   {
-   "id": "PLxOs22nkVmnJI1_URegvYQM8tOUg-iaug",
-   "title": "【Members Only 会员专享】《斗罗大陆》Soul Land | 此生无悔入唐门 | 腾讯视频 - 动漫",
-   "anilistId": 101920,
-   "how": "first"
-  },
-  {
    "id": "PLxOs22nkVmnJV5YGIKqb1I7v-9g7KdMGk",
    "title": "《斗罗大陆》Soul Land | Join Membership Watch it All | 腾讯视频 - 动漫",
    "anilistId": 101920,
@@ -626,9 +616,10 @@
   }
  ],
  "dropped": [],
+ "merged": 5,
  "counts": {
-  "seasons": 747,
-  "unmatched": 58,
+  "seasons": 741,
+  "unmatched": 56,
   "guessed": 55
  }
 }

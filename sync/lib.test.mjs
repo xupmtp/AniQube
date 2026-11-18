@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, dropCovered, splitName, norm } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, dropCovered, splitName, dubLabel, dropSameTitle, norm } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -13,6 +13,9 @@ test('cleanTitle：實際遇到的各種清單標題', () => {
   assert.equal(cleanTitle('【國語】SPY×FAMILY間諜家家酒(全部集數)｜Muse木棉花 動畫 線上看'), 'SPY×FAMILY間諜家家酒');
   assert.equal(cleanTitle('《大理寺日志》White Cat Legend | 腾讯视频 - 动漫'), '大理寺日志');
   assert.equal(cleanTitle('【我推的孩子】【限時免費公開】【Ani-One】'), '【我推的孩子】');
+  assert.equal(cleanTitle('💥《我的英雄學院》第六季 (繁中字幕)【Ani-One ULTRA】'), '我的英雄學院 第六季');
+  assert.equal(cleanTitle('【Members Premiere 会员抢先看】《诛仙》第三季 | Jade Dynasty Season 3'), '诛仙 第三季');
+  assert.equal(cleanTitle('《期間限定》青春豬頭少年系列｜《青春豬頭少年不會夢到親愛好朋友》'), '青春豬頭少年系列');
 });
 
 test('parseHints：季數與年份', () => {
@@ -131,4 +134,19 @@ test('splitName：中英黏在一起才拆，命中標為 split', () => {
   assert.deepEqual(splitName('夜櫻家大作戰'), []);
   const idx = buildIndex([{ title: 'Code Geass', type: 'TV', sources: ['https://anilist.co/anime/1575'] }]);
   assert.equal(match('CODE GEASS叛逆的魯魯修【Ani-One】', idx).how, 'split');
+});
+
+test('dubLabel：只認明確的配音標記', () => {
+  assert.equal(dubLabel('【國語】獵人HUNTER×HUNTER｜Muse木棉花'), '國語');
+  assert.equal(dubLabel('【日語】獵人HUNTER×HUNTER｜Muse木棉花'), '日語');
+  assert.equal(dubLabel('《勇者、辭職不幹了》(粵語配音 | 繁中字幕)【Ani-One】'), '粵語');
+  assert.equal(dubLabel('魔法公主的小煩惱【中文配音】｜Muse'), '國語');
+  assert.equal(dubLabel('《勇者、辭職不幹了》(日語原聲 | 繁中字幕)【Ani-One】'), null);
+});
+
+test('dropSameTitle：同頻道同名只留集數最多的，單篇不併', () => {
+  const s = (id, channel, title, eps, format = 'TV') => ({ id, channel, title, eps, format });
+  const out = dropSameTitle([s('a', 'muse', '甲', 19), s('b', 'muse', '甲', 20), s('c', 'anione', '甲', 5),
+    s('d', 'muse', '甲（國語）', 3), s('e', 'tencent', '特別篇', 1, 'SINGLE'), s('f', 'tencent', '特別篇', 1, 'SINGLE')]);
+  assert.deepEqual(out.map((x) => x.id), ['b', 'c', 'd', 'e', 'f']);
 });

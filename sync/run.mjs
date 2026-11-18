@@ -2,7 +2,7 @@
 // 用法：YOUTUBE_API_KEY=金鑰 npm run sync     （金鑰只從環境變數讀，不寫進任何檔案）
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { zstdDecompressSync } from 'node:zlib';
-import { buildIndex, buildSeasons, buildStandalones, cleanTitle, dropCovered, match, toTrad } from './lib.mjs';
+import { buildIndex, buildSeasons, buildStandalones, cleanTitle, dropCovered, dropSameTitle, dubLabel, match, toTrad } from './lib.mjs';
 import { BLOCKED_GENRES, GENRES, TAGS } from './taxonomy.mjs';
 
 const KEY = process.env.YOUTUBE_API_KEY;
@@ -150,7 +150,8 @@ const report = { unmatched: [], guessed: [], dropped: [] };
 for (const s of raw) {
   const a = s.link ? meta.get(s.link.anilistId) : null;
   if (a?.genres.some((g) => BLOCKED_GENRES.includes(g))) { report.dropped.push({ id: s.playlistId, title: s.rawTitle, why: 'adult' }); continue; }
-  const name = cleanTitle(s.rawTitle);
+  const dub = dubLabel(s.rawTitle);
+  const name = cleanTitle(s.rawTitle) + (dub ? `（${dub}）` : '');
   const title = s.channel.origin === 'CN' ? toTrad(name) : name;
   const tags = (a?.tags ?? []).filter((t) => !t.isMediaSpoiler && t.rank >= 60 && TAGS[t.name]).map((t) => TAGS[t.name]);
   const entry = s.link?.entry;
@@ -170,6 +171,13 @@ for (const s of raw) {
   if (!s.link) report.unmatched.push({ id: s.playlistId, title: s.rawTitle, eps: s.episodes.length });
   else if (['first', 'season', 'split'].includes(s.link.how)) report.guessed.push({ id: s.playlistId, title: s.rawTitle, anilistId: s.link.anilistId, how: s.link.how });
 }
+
+const before = seasons.length;
+seasons.splice(0, Infinity, ...dropSameTitle(seasons));
+report.merged = before - seasons.length;
+const kept = new Set(seasons.map((s) => s.id));
+report.unmatched = report.unmatched.filter((x) => kept.has(x.id));
+report.guessed = report.guessed.filter((x) => kept.has(x.id));
 
 // 保護：片庫一次縮水超過三成視為異常，不覆蓋
 const prev = existsSync(`${OUT}/index.json`) ? JSON.parse(readFileSync(`${OUT}/index.json`, 'utf8')).seasons.length : 0;

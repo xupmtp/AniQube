@@ -11,14 +11,23 @@ const CJK_NUM = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8
 
 /** 播放清單標題 → 作品名（去掉表情、宣傳字、頻道標記） */
 export function cleanTitle(raw) {
-  let s = raw.replace(/[\p{Extended_Pictographic}‍️#]/gu, '');
-  const m = /《(.+?)》/.exec(s);
-  if (m) s = m[1];
+  let s = raw.replace(/[\p{Extended_Pictographic}‍️#]/gu, '').replace(/《(期間限定|72小時快閃)》/g, '');
+  // 《作品》後緊接的季數要留著，不然各季清單會變成同名卡片
+  // 只在「｜」之前找《》：之後常是宣傳尾巴（「｜《劇場版 某》上映」）
+  const m = /《(.+?)》\s*(第[一二三四五六七八九十\d]+季|Season\s*\d+)?/i.exec(s.replace(/[｜|].*$/, ''));
+  if (m) s = m[2] ? `${m[1]} ${m[2]}` : m[1];
   s = s.replace(/[｜|].*$/, '');
   s = s.replace(/【(Ani-One[^】]*|限時免費公開|國語|日語|粵語[^】]*)】/g, '');
   s = s.replace(/\([^)]*(字幕|配音|全部集數|全集|TV版|全)\)/g, '');
   s = s.replace(/（[^）]*）/g, '');
   return s.trim().replace(/^[-\s　]+|[-\s　]+$/g, '');
+}
+
+/** 清單標題標明的配音語言（國語、粵語⋯），用來區分同作品的不同配音版；沒標就回 null */
+export function dubLabel(raw) {
+  const m = /【(國語|日語|粵語|台語)】|[(（]\s*(粵語|國語)配音|【(中文|日文)配音】/.exec(raw);
+  if (!m) return null;
+  return m[1] ?? m[2] ?? (m[3] === '中文' ? '國語' : '日語');
 }
 
 /** 從標題抓季數與年份提示，用來在同名多筆條目中挑一筆 */
@@ -166,6 +175,17 @@ export function dropCovered(seasons) {
   const ids = seasons.map((s) => new Set(s.episodes.map((e) => e.id)));
   return seasons.filter((_, i) => !seasons.some((_, j) => j !== i && ids[i].size <= ids[j].size
     && (ids[i].size < ids[j].size || j < i) && [...ids[i]].every((x) => ids[j].has(x))));
+}
+
+/** 同片源、同標題（含配音標記）的季是重複上傳或殘缺清單 → 只留集數最多的；單篇不併，常是上下集 */
+export function dropSameTitle(seasons) {
+  const best = new Map();
+  for (const s of seasons) {
+    if (s.format === 'SINGLE') continue;
+    const k = `${s.channel}|${s.title}`, b = best.get(k);
+    if (!b || s.eps > b.eps) best.set(k, s);
+  }
+  return seasons.filter((s) => s.format === 'SINGLE' || best.get(`${s.channel}|${s.title}`) === s);
 }
 
 /** 不在任何季裡的長片，且標題像劇場版/特別篇 → 單篇。單集上傳、談話節目、開箱都不收 */
