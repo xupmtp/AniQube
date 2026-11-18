@@ -1,7 +1,7 @@
 // 繼續觀看與我的片單：只存在這個瀏覽器的 localStorage，沒有帳號。以作品為單位；季為單位的舊紀錄（舊 key）直接作廢。
 import { reactive, watch } from 'vue';
 
-export interface Progress { ep: string; t: number; at: number }
+export interface Progress { ep: string; t: number; at: number; d?: number } // d：這集長度（秒），卡片進度條用
 
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; }
@@ -24,7 +24,7 @@ export function toggleList(id: string) {
   if (i >= 0) myList.splice(i, 1);
   else { myList.unshift(id); seen[id] ??= new Date().toISOString(); }
 }
-export const setProgress = (id: string, ep: string, t: number) => { progress[id] = { ep, t: Math.floor(t), at: Date.now() }; };
+export const setProgress = (id: string, ep: string, t: number, d?: number) => { progress[id] = { ep, t: Math.floor(t), at: Date.now(), d }; };
 export const clearProgress = (id: string) => { delete progress[id]; };
 
 /** 打開作品頁或播放頁：基準更新到作品目前的最後更新時間，有新集的標記就消失 */

@@ -79,7 +79,7 @@ async function start() {
 function ended() {
   // 先取出下一集：網址沒帶集數時位置跟著進度走，setProgress 之後 next 就會變成再下一集
   const n = next.value;
-  if (n) { const v = epAt(detail.value!, n).id; setProgress(id.value, v, 0); router.replace(`/watch/${enc(id.value)}/${v}`); }
+  if (n) { const e = epAt(detail.value!, n); setProgress(id.value, e.id, 0, e.sec); router.replace(`/watch/${enc(id.value)}/${e.id}`); }
   else clearProgress(id.value);
 }
 
@@ -87,7 +87,7 @@ watch(() => ep.value?.id, (v) => { if (v) void start(); });
 // 每 5 秒記一次進度；前 3 秒不記，避免剛開始就把上次的位置洗成 0
 const timer = window.setInterval(() => {
   if (!player || !ep.value || ep.value.ext) return;
-  try { const t = player.getCurrentTime(); if (t > 3) setProgress(id.value, ep.value.id, t); } catch { /* 播放器還沒就緒 */ }
+  try { const t = player.getCurrentTime(); if (t > 3) setProgress(id.value, ep.value.id, t, ep.value.sec); } catch { /* 播放器還沒就緒 */ }
 }, 5000);
 onUnmounted(() => { clearInterval(timer); stop(); });
 </script>
