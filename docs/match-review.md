@@ -42,7 +42,7 @@ npm run rebuild
 
 ## 提交
 
-- 只提交 `manual-matches.json`、`manual-works.json`。`public/data` 不用提交，Action 會重建。
+- 只提交 `manual-matches.json`、`manual-works.json`。`public/data` 不用提交，Action 會重建；結束前（包括什麼都沒改的時候）`git checkout -- public/data` 還原 rebuild 產生的變動。
 - 直接提交到 `main` 並推送，提交前先 `git pull --rebase`。
 - 提交訊息：`data: weekly match review YYYY-MM-DD`，內文列出改了幾筆、修正了哪些錯的對應、哪些查不到。
 
