@@ -3,7 +3,7 @@
 先讀 `CONTEXT.md`（詞彙表）和 `docs/adr/`（兩份決策紀錄），再讀本文件。回覆一律用繁體中文，語氣直接，少用條列。
 
 ## 專案是什麼
-類 Netflix 的動畫瀏覽網站。影片全部來自 YouTube 官方頻道，只嵌入播放。沒有登入、沒有後端、沒有資料庫。使用者 Simon，台北，熟 Vue 3 / TypeScript。
+類 Netflix 的動畫瀏覽網站。影片全部來自 YouTube 官方頻道，只嵌入播放。沒有登入、沒有後端、沒有資料庫。
 
 ## 已定案的設計
 - 技術：Vue 3 + Vite + TypeScript，手寫 CSS、深色主題、hash 路由，部署 GitHub Pages。每天 GitHub Actions 執行 `npm run sync`，產生靜態 JSON（`public/data/index.json`、`seasons/<id>.json`、`report.json`）並提交。搜尋、篩選、排序都在瀏覽器做。
