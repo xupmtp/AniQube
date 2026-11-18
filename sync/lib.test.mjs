@@ -280,3 +280,8 @@ test('季數寫法：2nd Season、中文後的羅馬數字；「全集」是合�
   assert.equal(cleanTitle('🌟【官方Official】🌟《仙迹寻踪》Tracing the Divine | 从无家可归到玄门至尊！| 阅文动漫'), '仙迹寻踪');
   assert.ok(isCollection('🐸《KERORO軍曹》TV全集（雙語）｜曼迪Mighty TV'));
 });
+
+test('cleanTitle：作品名寫在「｜」後面的單篇', () => {
+  assert.equal(cleanTitle('🪐总集篇EP01-04【无拼接一口气】|《斗破苍穹》Battle Through the Heavens | 阅文动漫'), '斗破苍穹 总集篇EP01-04【无拼接一口气】');
+  assert.equal(cleanTitle('劇場版 某作品｜Muse木棉花 動畫 線上看'), '劇場版 某作品');            // 後面不是《》就不動
+});

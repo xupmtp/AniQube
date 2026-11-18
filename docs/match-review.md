@@ -11,7 +11,7 @@ mkdir -p sync/cache && git fetch -q --depth 1 origin data-cache && git show FETC
 npm run rebuild             # 不需要 YouTube 金鑰、不花配額
 ```
 
-`report.json` 的 `unmatched` 和 `guessed` 都是空的就結束，不要提交任何東西。
+`report.json` 的 `unmatched`、`guessed` 都是空的、`fuzzy` 也沒有錯併，就結束，不要提交任何東西。
 
 ## 每一筆怎麼判斷
 
@@ -26,6 +26,10 @@ npm run rebuild             # 不需要 YouTube 金鑰、不花配額
 5. 查不到、或沒把握的：**不要寫**，留在 `unmatched`，在提交訊息裡列出來。寧可缺資料也不要對錯。
 
 key 依字母排序、一個空格縮排（`JSON.stringify(obj, null, 1)`），檔尾換行。
+
+## 檢查模糊合併
+
+`report.json` 的 `fuzzy` 列出只靠名稱相似度（Dice ≥ 0.8）合併的作品名配對。逐一確認是同一部作品；不是的（外傳、換主角的新系列）在 `manual-works.json` 把其中一邊的清單指定為自己的作品名拆開，並在提交訊息裡註明。
 
 ## 檢查合併
 

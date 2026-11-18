@@ -4,7 +4,7 @@
     { "key": "anione",  "id": "UC45ONEZZfMDZCnEhgYmVu-A", "name": "Ani-One中文官方動畫頻道", "label": "Ani-One", "origin": "JP", "minSec": 120 },
     { "key": "tencent", "id": "UCdpiId0eJGnnIvfhpbJIM1w", "name": "騰訊視頻動畫",           "label": "騰訊視頻", "origin": "CN", "minSec": 900, "memberMarkers": "" },
     { "key": "mighty",  "id": "UCCrpNwDnc_ULP3tjUQsCkag", "name": "曼迪Mighty TV動畫頻道",   "label": "曼迪", "origin": "JP", "minSec": 300 },
-    { "key": "yuewen",  "id": "UCM5qb75ErC1JMmdgWjN8HJA", "name": "閱文動畫官方頻道",       "label": "閱文動畫", "origin": "CN", "minSec": 300 }
+    { "key": "yuewen",  "id": "UCM5qb75ErC1JMmdgWjN8HJA", "name": "閱文動畫官方頻道",       "label": "閱文動畫", "origin": "CN", "minSec": 300, "memberMarkers": "" }
   ],
   "maxSec": 10800,
   "standaloneMinSec": 1200,
