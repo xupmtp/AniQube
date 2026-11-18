@@ -18,7 +18,7 @@ export function cleanTitle(raw) {
   if (m) s = m[2] ? `${m[1]} ${m[2]}` : m[1];
   s = s.replace(/[｜|].*$/, '');
   s = s.replace(/【(Ani-One[^】]*|限時免費公開|國語|日語|粵語[^】]*)】/g, '');
-  s = s.replace(/\([^)]*(字幕|配音|全部集數|全集|TV版|全)\)/g, '');
+  s = s.replace(/\([^)]*(字幕|配音|全部集數|全集數?|TV版|全)\)/g, '');
   s = s.replace(/（[^）]*）/g, '');
   return s.trim().replace(/^[-\s　]+|[-\s　]+$/g, '');
 }
@@ -222,59 +222,122 @@ export function workBase(name) {
 export const isCollection = (raw) => COLLECTION.test(raw);
 
 /**
- * 把一個頻道的季（播放清單）與單篇分組成作品。
- * items: [{ id, name, rawTitle, lang, single, order, episodes:[{id}] }]，order = 頻道清單順序
- * override: { 清單ID: 作品名 }（人工作品對應表）
+ * 季的順序：標題有季數就照季數；沒寫季數的（「續」「完」「The Final Season」）依首播時間（when）插到
+ * 最後一個不晚於它的有號季後面；兩者都沒有的當第一季。同位置再依頻道清單順序。
+ */
+export function orderSeasons(list) {
+  const byNo = (a, b) => (a.no ?? 1) - (b.no ?? 1) || a.order - b.order;
+  const out = list.filter((x) => x.no != null || x.when === Infinity).sort(byNo);
+  for (const f of list.filter((x) => x.no == null && x.when !== Infinity).sort((a, b) => a.when - b.when || a.order - b.order)) {
+    let at = 0;
+    out.forEach((x, i) => { if (x.when <= f.when) at = i + 1; });
+    out.splice(at, 0, f);
+  }
+  return out.map(({ when, ...x }) => ({ ...x, no: x.no ?? 1 }));
+}
+
+/**
+ * 把一個頻道的季（播放清單）與單篇分組成作品（docs/adr/0003）。
+ * items: [{ id, name, rawTitle, lang, original, single, order, aid, when, episodes:[{id}] }]
+ *   order = 頻道清單順序；aid = 對應到的 AniList 編號；when = 首播（年*10+季度，未知為 null）；original = 這份是原聲
+ * override: { 清單ID: 作品名 }（人工作品對應表；指定的作品不參與自動合併）
+ * related: { AniList編號: [續集／前傳的編號] }
  * 回傳 [{ key, base, seasons:[{ name, kind, no, dubs:[item] }] }]，季已排序；kind = season | collection | special
  */
-export function groupWorks(items, override = {}) {
+export function groupWorks(items, override = {}, related = {}) {
+  // 1. 標題：作品名相同的歸一部；季名相同、配音不同的是同一季的配音版；同季同配音只留集數最多的（重複上傳）
   const works = new Map();
   const workOf = (base) => {
     const key = norm(base);
-    if (!works.has(key)) works.set(key, { key, base, groups: new Map() });
+    if (!works.has(key)) works.set(key, { key, base, groups: new Map(), pinned: false });
     return works.get(key);
   };
-  const ids = (it) => new Set(it.episodes.map((e) => e.id));
-
-  // 1. 季：作品名相同的歸一部；季名相同、配音不同的是同一季的配音版；同季同配音只留集數最多的（重複上傳）
-  for (const it of items.filter((x) => !x.single)) {
-    const w = workOf(override[it.id] ?? workBase(it.name));
-    const gk = norm(it.name);
-    const g = w.groups.get(gk) ?? { name: it.name, coll: isCollection(it.rawTitle), dubs: new Map(), order: it.order };
+  const addTo = (w, it, special) => {
+    const gk = (special ? 'sp:' : '') + norm(it.name);
+    const g = w.groups.get(gk) ?? { name: it.name, special, coll: !special && isCollection(it.rawTitle), dubs: new Map(), order: it.order };
     const cur = g.dubs.get(it.lang);
     if (!cur || it.episodes.length > cur.episodes.length) g.dubs.set(it.lang, it);
     g.order = Math.min(g.order, it.order);
     w.groups.set(gk, g);
-  }
-
-  // 2. 合輯：標題看得出來，或集數完整包含同作品另一季；被其他單季完整涵蓋的合輯不列
-  for (const w of works.values()) {
-    const gs = [...w.groups.values()].map((g) => ({ ...g, ids: new Set([...g.dubs.values()].flatMap((d) => [...ids(d)])) }));
-    for (const g of gs) {
-      if (!g.coll) g.coll = gs.some((o) => o !== g && o.ids.size < g.ids.size && [...o.ids].every((x) => g.ids.has(x)));
-    }
-    // 從小的合輯開始：能被作品裡其他清單（單季或別的合輯）完整取代就不列
-    const kept = new Set(gs);
-    for (const g of gs.filter((x) => x.coll).sort((x, y) => x.ids.size - y.ids.size)) {
-      const others = new Set([...kept].filter((o) => o !== g).flatMap((o) => [...o.ids]));
-      if (kept.size > 1 && [...g.ids].every((x) => others.has(x))) kept.delete(g);
-    }
-    w.seasons = [...kept]
-      .map((g) => ({ name: g.name, kind: g.coll ? 'collection' : 'season', no: seasonNo(g.name) ?? 1, order: g.order, dubs: [...g.dubs.values()] }))
-      .sort((a, b) => a.no - b.no || a.order - b.order);
-  }
-
-  // 3. 單篇：標題含某作品名（取最長的）就歸入該作品，否則自成一部；同名不同配音的併成配音版
+    if (it.id in override) w.pinned = true;
+  };
+  for (const it of items.filter((x) => !x.single)) addTo(workOf(override[it.id] ?? workBase(it.name)), it, false);
+  // 單篇：標題含某作品名（取最長的）就歸入該作品，否則自成一部
   const keys = [...works.keys()].filter((k) => k.length >= 3).sort((a, b) => b.length - a.length);
   for (const it of items.filter((x) => x.single)) {
     const forced = override[it.id];
     const k = forced ? norm(forced) : keys.find((key) => norm(it.name).includes(key));
-    const w = k && works.has(k) ? works.get(k) : workOf(forced ?? it.name);
-    w.seasons ??= [];
-    const same = w.seasons.find((x) => x.kind === 'special' && norm(x.name) === norm(it.name));
-    if (!same) w.seasons.push({ name: it.name, kind: 'special', no: Infinity, order: it.order, dubs: [it] });
-    else if (!same.dubs.some((d) => d.lang === it.lang)) same.dubs.push(it);
+    addTo(k && works.has(k) ? works.get(k) : workOf(forced ?? it.name), it, true);
   }
 
-  return [...works.values()].filter((w) => w.seasons?.length).map(({ key, base, seasons }) => ({ key, base, seasons }));
+  // 2. 合併：共用影片過半、同一個 AniList 編號、AniList 續集／前傳；人工指定的作品不動
+  const list = [...works.values()];
+  const dubsOf = (w) => [...w.groups.values()].flatMap((g) => [...g.dubs.values()]);
+  const eps = list.map((w) => new Set(dubsOf(w).flatMap((d) => d.episodes.map((e) => e.id))));
+  const up = list.map((_, i) => i);
+  const find = (x) => (up[x] === x ? x : (up[x] = find(up[x])));
+  const join = (a, b) => { if (!list[a].pinned && !list[b].pinned) up[find(a)] = find(b); };
+  const owners = new Map();
+  eps.forEach((set, i) => set.forEach((e) => owners.set(e, [...(owners.get(e) ?? []), i])));
+  const shared = new Map();
+  for (const os of owners.values()) for (const a of os) for (const b of os) if (a < b) shared.set(`${a},${b}`, (shared.get(`${a},${b}`) ?? 0) + 1);
+  for (const [k, n] of shared) { // 過半才算：「精選」「教學」這類混合清單只共用幾支，不該把不相干的作品串起來
+    const [a, b] = k.split(',').map(Number);
+    if (n * 2 >= Math.min(eps[a].size, eps[b].size)) join(a, b);
+  }
+  const byAid = new Map();
+  list.forEach((w, i) => dubsOf(w).forEach((d) => { if (d.aid) { if (byAid.has(d.aid)) join(i, byAid.get(d.aid)); else byAid.set(d.aid, i); } }));
+  list.forEach((w, i) => dubsOf(w).forEach((d) => (related[d.aid] ?? []).forEach((b) => { if (byAid.has(b)) join(i, byAid.get(b)); })));
+
+  const merged = new Map();
+  list.forEach((w, i) => { const r = find(i); merged.set(r, [...(merged.get(r) ?? []), w]); });
+  const out = [];
+  for (const members of merged.values()) {
+    // 作品名：有原聲首季的那份，同樣是首季就取名稱最短的（「我的英雄學院」而非「我的英雄學院 : I am a hero too」）
+    const rank = (w) => Math.min(...[...w.groups.values()].filter((g) => !g.special && [...g.dubs.values()].some((d) => d.original)).map((g) => seasonNo(g.name) ?? 1));
+    const head = [...members].sort((a, b) => rank(a) - rank(b) || a.base.length - b.base.length)[0];
+    const groups = new Map();
+    for (const w of members) {
+      for (const [gk, g] of w.groups) {
+        const cur = groups.get(gk);
+        if (!cur) { groups.set(gk, { ...g, dubs: new Map(g.dubs) }); continue; }
+        for (const [lang, d] of g.dubs) if (!cur.dubs.has(lang) || d.episodes.length > cur.dubs.get(lang).episodes.length) cur.dubs.set(lang, d);
+        cur.order = Math.min(cur.order, g.order);
+      }
+    }
+    out.push({ key: head.key, base: head.base, groups });
+  }
+
+  // 3. 合輯與配音版：合輯幾乎被其他清單涵蓋就不列；名稱不同但對到同一個 AniList 編號、語言互補的季是同一季的配音版
+  const ids = (g) => new Set([...g.dubs.values()].flatMap((d) => d.episodes.map((e) => e.id)));
+  return out.map(({ key, base, groups }) => {
+    let gs = [...groups.values()].filter((g) => !g.special).map((g) => ({ ...g, ids: ids(g) }));
+    for (const g of gs) if (!g.coll) g.coll = gs.some((o) => o !== g && o.ids.size < g.ids.size && [...o.ids].every((x) => g.ids.has(x)));
+    const kept = new Set(gs);
+    for (const g of gs.filter((x) => x.coll).sort((x, y) => x.ids.size - y.ids.size)) {
+      const others = new Set([...kept].filter((o) => o !== g).flatMap((o) => [...o.ids]));
+      // 九成以上的集在別的清單都有（重複上傳的合輯常差一兩支）就不列
+      if (kept.size > 1 && [...g.ids].filter((x) => others.has(x)).length >= g.ids.size * 0.9) kept.delete(g);
+    }
+    gs = [...kept];
+    const aidOf = (g) => { const a = new Set([...g.dubs.values()].map((d) => d.aid)); return a.size === 1 ? [...a][0] : null; };
+    for (const g of [...gs]) {
+      if (g.coll || !kept.has(g) || !aidOf(g)) continue;
+      for (const o of gs) {
+        if (o === g || o.coll || !kept.has(o) || aidOf(o) !== aidOf(g) || (seasonNo(o.name) ?? 1) !== (seasonNo(g.name) ?? 1)) continue;
+        if ([...o.dubs.keys()].some((l) => g.dubs.has(l))) continue;
+        const [main, extra] = [...o.dubs.values()].some((d) => d.original) ? [o, g] : [g, o];
+        for (const [l, d] of extra.dubs) main.dubs.set(l, d);
+        main.order = Math.min(main.order, extra.order);
+        kept.delete(extra);
+      }
+    }
+    const seasons = orderSeasons([...kept].map((g) => ({
+      name: g.name, kind: g.coll ? 'collection' : 'season', no: seasonNo(g.name), order: g.order, dubs: [...g.dubs.values()],
+      when: Math.min(...[...g.dubs.values()].map((d) => d.when ?? Infinity)),
+    })));
+    const specials = [...groups.values()].filter((g) => g.special).sort((a, b) => a.order - b.order)
+      .map((g) => ({ name: g.name, kind: 'special', no: Infinity, order: g.order, dubs: [...g.dubs.values()] }));
+    return { key, base, seasons: [...seasons, ...specials] };
+  });
 }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, norm } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, norm } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -13,6 +13,7 @@ test('cleanTitle：實際遇到的各種清單標題', () => {
   assert.equal(cleanTitle('【國語】SPY×FAMILY間諜家家酒(全部集數)｜Muse木棉花 動畫 線上看'), 'SPY×FAMILY間諜家家酒');
   assert.equal(cleanTitle('《大理寺日志》White Cat Legend | 腾讯视频 - 动漫'), '大理寺日志');
   assert.equal(cleanTitle('【我推的孩子】【限時免費公開】【Ani-One】'), '【我推的孩子】');
+  assert.equal(cleanTitle('無職轉生～到了異世界就拿出真本事～(全集數)｜Muse木棉花 動畫 線上看'), '無職轉生～到了異世界就拿出真本事～');
   assert.equal(cleanTitle('💥《我的英雄學院》第六季 (繁中字幕)【Ani-One ULTRA】'), '我的英雄學院 第六季');
   assert.equal(cleanTitle('【Members Premiere 会员抢先看】《诛仙》第三季 | Jade Dynasty Season 3'), '诛仙 第三季');
   assert.equal(cleanTitle('《期間限定》青春豬頭少年系列｜《青春豬頭少年不會夢到親愛好朋友》'), '青春豬頭少年系列');
@@ -183,3 +184,46 @@ test('sortEpisodes：合併版涵蓋的集都有單獨上傳就拿掉，否則�
   assert.deepEqual(out.map((x) => [x.n, x.title]), [[1, '首播 第01-04話'], [5, '第05話'], [6, '第06話'], [7, '第07話'], [8, '第08話']]);
 });
 
+
+test('groupWorks：共用影片過半、同 AniList、續集關聯才合併；人工指定的不併', () => {
+  const it = (id, name, o = {}) => ({ id, name, rawTitle: o.raw ?? name, lang: o.lang ?? '日語', original: (o.lang ?? '日語') === '日語', single: false, order: o.order ?? 0, aid: o.aid ?? null, episodes: (o.eps ?? [id]).map((x) => ({ id: x })) });
+  const titles = (ws) => ws.map((w) => w.base).sort();
+  // 無職轉生：名稱不同但影片幾乎一樣
+  assert.deepEqual(titles(groupWorks([it('a', '無職轉生S1-S3', { raw: '無職轉生S1-S3', eps: ['1', '2', '3'] }), it('b', '無職轉生 全', { eps: ['1', '2', '3', '4'] })])), ['無職轉生']);
+  // 混合清單只共用一支，不併
+  assert.equal(groupWorks([it('x', '暗殺教室', { eps: ['1', '2', '3', '4'] }), it('y', '學日文', { eps: ['1', '9', '8', '7'] })]).length, 2);
+  // 續集關聯：名稱完全不同
+  assert.deepEqual(titles(groupWorks([it('c', '果然我的青春', { aid: 1 }), it('d', '果然我的青春。續', { aid: 2 })], {}, { 2: [1] })), ['果然我的青春']);
+  // 人工指定的作品不參與自動合併
+  assert.equal(groupWorks([it('m', 'MyGO', { aid: 1 }), it('n', 'Ave Mujica', { aid: 2 })], { n: 'Ave Mujica' }, { 2: [1] }).length, 2);
+});
+
+test('groupWorks：名稱不同、同 AniList 編號、語言互補的季配成配音版，作品名用原聲', () => {
+  const it = (id, name, lang, aid) => ({ id, name, rawTitle: name, lang, original: lang === '日語', single: false, order: 0, aid, episodes: [{ id }] });
+  const [w] = groupWorks([
+    it('c1', 'Dr.STONE', '粵語', 10), it('c2', 'Dr.STONE (第二季)', '粵語', 11),
+    it('j1', 'Dr.STONE 新石紀', '日語', 10), it('j2', 'Dr.STONE 新石紀 (第二季)', '日語', 11),
+  ]);
+  assert.equal(w.base, 'Dr.STONE 新石紀');
+  assert.deepEqual(w.seasons.map((s) => [s.name, s.dubs.map((d) => d.lang).sort()]), [
+    ['Dr.STONE 新石紀', ['日語', '粵語']], ['Dr.STONE 新石紀 (第二季)', ['日語', '粵語']],
+  ]);
+});
+
+test('groupWorks：作品名取原聲首季中最短的；九成重複的合輯不列', () => {
+  const it = (id, name, o = {}) => ({ id, name, rawTitle: o.raw ?? name, lang: '日語', original: true, single: false, order: o.order ?? 0, aid: o.aid ?? null, episodes: (o.eps ?? [id]).map((x) => ({ id: x })) });
+  const [hero] = groupWorks([it('a', '英雄學院 : I am a hero too', { aid: 1, order: 0 }), it('b', '英雄學院 第一季', { aid: 1, order: 5 })]);
+  assert.equal(hero.base, '英雄學院');
+  const ten = Array.from({ length: 10 }, (_, i) => String(i));
+  const [w] = groupWorks([it('p', '某作S1-S2', { raw: '某作S1-S2', eps: ten }), it('q', '某作 全', { raw: '某作(全部集數)', eps: [...ten.slice(0, 9), 'x'] })]);
+  assert.equal(w.seasons.length, 1);
+});
+
+test('orderSeasons：有季數照季數，沒季數的依首播時間插入，都沒有的當第一季', () => {
+  const s = (name, no, when, order = 0) => ({ name, no, when: when ?? Infinity, order, kind: 'season', dubs: [] });
+  const names = (l) => orderSeasons(l).map((x) => x.name);
+  assert.deepEqual(names([s('完', null, 20201), s('續', null, 20152), s('首', null, 20132)]), ['首', '續', '完']);
+  assert.deepEqual(names([s('完結篇', null, 20231), s('The Final Season', null, 20204), s('合輯', null, 20132), s('第二季', 2, 20172), s('第三季', 3, 20183)]),
+    ['合輯', '第二季', '第三季', 'The Final Season', '完結篇']);
+  assert.deepEqual(names([s('第二季', 2, null), s('無資料', null, null, 1)]), ['無資料', '第二季']);
+});

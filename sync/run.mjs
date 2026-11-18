@@ -102,7 +102,8 @@ async function loadDataset() {
 
 const ANILIST = `query($ids:[Int],$page:Int){Page(page:$page,perPage:50){media(id_in:$ids,type:ANIME){
   id countryOfOrigin format status episodes season seasonYear averageScore popularity trending genres
-  description(asHtml:false) bannerImage coverImage{large} tags{name rank isMediaSpoiler}}}}`;
+  description(asHtml:false) bannerImage coverImage{large} tags{name rank isMediaSpoiler}
+  relations{edges{relationType node{id}}}}}}`;
 async function anilist(ids) {
   const out = new Map();
   for (let i = 0; i < ids.length; i += 50) {
@@ -151,14 +152,17 @@ const report = { unmatched: [], guessed: [], dropped: [] };
 const ORIGINAL = { JP: '日語', CN: '國語', KR: '韓語' }; // 沒標配音的清單就是原聲
 const genresOf = (a) => (a?.genres ?? []).filter((g) => GENRES[g]).map((g) => GENRES[g]);
 const tagsOf = (a) => (a?.tags ?? []).filter((t) => !t.isMediaSpoiler && t.rank >= 60 && TAGS[t.name]).map((t) => TAGS[t.name]);
+const SEASON_IDX = { WINTER: 0, SPRING: 1, SUMMER: 2, FALL: 3 };
+const airTime = (a, e) => { const y = a?.seasonYear ?? e?.animeSeason?.year; return y ? y * 10 + (SEASON_IDX[a?.season ?? e?.animeSeason?.season] ?? 0) : null; };
 const items = [];
 raw.forEach((s, order) => {
   const a = s.link ? meta.get(s.link.anilistId) : null;
   if (a?.genres.some((g) => BLOCKED_GENRES.includes(g))) { report.dropped.push({ id: s.playlistId, title: s.rawTitle, why: 'adult' }); return; }
-  const name = cleanTitle(s.rawTitle);
+  const name = cleanTitle(s.rawTitle), lang = dubLabel(s.rawTitle) ?? ORIGINAL[s.channel.origin];
   items.push({
     id: s.playlistId, name: s.channel.origin === 'CN' ? toTrad(name) : name, rawTitle: s.rawTitle, single: !!s.single, order,
-    channel: s.channel, lang: dubLabel(s.rawTitle) ?? ORIGINAL[s.channel.origin], members: s.members ?? 0,
+    channel: s.channel, lang, original: lang === ORIGINAL[s.channel.origin], members: s.members ?? 0, aid: s.link?.anilistId ?? null,
+    when: airTime(a, s.link?.entry),
     episodes: s.episodes, a, entry: s.link?.entry, link: s.link,
   });
   if (!s.link) report.unmatched.push({ id: s.playlistId, title: s.rawTitle, eps: s.episodes.length });
@@ -166,9 +170,13 @@ raw.forEach((s, order) => {
 });
 
 // 作品：卡片顯示最新一季的資料、年份用首季；篩選與搜尋用所有季的聯集（docs/adr/0003）
+// AniList 續集／前傳：名稱差很多的續作（「續」「完」「The Final Season」）靠這個併進同一部作品
+const related = {};
+for (const [id, m] of meta) related[id] = (m.relations?.edges ?? []).filter((e) => e.relationType === 'SEQUEL' || e.relationType === 'PREQUEL').map((e) => e.node.id);
+
 const works = [], workFiles = [];
 for (const ch of cfg.channels) {
-  for (const w of groupWorks(items.filter((it) => it.channel.key === ch.key), manualWorks)) {
+  for (const w of groupWorks(items.filter((it) => it.channel.key === ch.key), manualWorks, related)) {
     const orig = ORIGINAL[ch.origin];
     const pick = (season) => season.dubs.find((d) => d.lang === orig) ?? season.dubs[0];
     const main = w.seasons.filter((x) => x.kind !== 'special');

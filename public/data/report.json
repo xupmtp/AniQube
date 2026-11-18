@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-18T03:53:52.042Z",
+ "generatedAt": "2026-11-18T05:29:25.756Z",
  "units": 0,
  "unmatched": [
   {
@@ -118,11 +118,6 @@
    "eps": 29
   },
   {
-   "id": "PL12UaAf_xzfr6TbciGHswIP6XCWvoTTWC",
-   "title": "【中日雙語字幕】看動畫電影學日文！",
-   "eps": 5
-  },
-  {
    "id": "PL12UaAf_xzfq_fyLYmeQ2_tn2BTFRIKjJ",
    "title": "殘念生物事典 第01-05集｜Muse木棉花 動畫 線上看",
    "eps": 5
@@ -225,6 +220,11 @@
   {
    "id": "v-OozK1QSaiRc",
    "title": "【劇場版】BanG Dream! Poppin'Dream！｜Muse木棉花 動畫 線上看",
+   "eps": 1
+  },
+  {
+   "id": "v-97tVqaLXErY",
+   "title": "【中日雙語字幕】電影「企鵝公路」｜Muse木棉花 動畫 線上看",
    "eps": 1
   },
   {
@@ -1049,7 +1049,7 @@
  ],
  "dropped": [],
  "counts": {
-  "works": 691,
+  "works": 629,
   "seasons": 975,
   "unmatched": 104,
   "guessed": 87
