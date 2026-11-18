@@ -202,6 +202,10 @@ main { min-height: calc(100vh - 120px); }
 .eps b { font: 700 var(--fs-md)/1 var(--serif); color: var(--dim); text-align: center; font-variant-numeric: tabular-nums; }
 .eps span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .eps small { color: var(--mute); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.eps a.seen span { color: var(--mute); }
+.eps .tick { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: var(--s2); border-radius: 50%; background: #ffffff1f; color: var(--text); font-size: 11px; font-weight: 700; vertical-align: 1px; }
+.btn.ghost { background: none; border-color: transparent; color: var(--mute); font-weight: 500; }
+.btn.ghost:hover { color: var(--text); border-color: var(--line); background: none; }
 .eps .none { display: grid; grid-template-columns: 3em 1fr; gap: var(--s3); align-items: center; min-height: 44px; padding: 8px var(--s4) 8px var(--s3); border-bottom: 1px dashed var(--line); color: var(--dim); font-size: var(--fs-sm); }
 .eps .none b { font-size: var(--fs-sm); opacity: .7; }
 .eps .alt-dub { min-height: 44px; color: var(--shu-hi); font-size: var(--fs-sm); }

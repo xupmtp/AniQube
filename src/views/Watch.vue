@@ -5,7 +5,7 @@ import { epTitle, fmtDur, ytUrl } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
 import { loadYT } from '../player.ts';
 import type { YTPlayer } from '../player.ts';
-import { clearProgress, markSeen, progress, setProgress } from '../store.ts';
+import { clearProgress, isWatched, markSeen, markWatched, progress, setProgress } from '../store.ts';
 import type { Detail } from '../types.ts';
 import { epAt, episodeRows, firstSpot, locate, nextSpot, switchDub } from '../work.ts';
 import type { Spot } from '../work.ts';
@@ -87,7 +87,11 @@ watch(() => ep.value?.id, (v) => { if (v) void start(); });
 // 每 5 秒記一次進度；前 3 秒不記，避免剛開始就把上次的位置洗成 0
 const timer = window.setInterval(() => {
   if (!player || !ep.value || ep.value.ext) return;
-  try { const t = player.getCurrentTime(); if (t > 3) setProgress(id.value, ep.value.id, t, ep.value.sec); } catch { /* 播放器還沒就緒 */ }
+  try {
+    const t = player.getCurrentTime();
+    if (t > 3) setProgress(id.value, ep.value.id, t, ep.value.sec);
+    if (t > 30) markWatched(id.value, ep.value.id); // 播超過 30 秒算看過
+  } catch { /* 播放器還沒就緒 */ }
 }, 5000);
 onUnmounted(() => { clearInterval(timer); stop(); });
 </script>
@@ -124,9 +128,9 @@ onUnmounted(() => { clearInterval(timer); stop(); });
       </div>
       <ol class="eps">
         <li v-for="r in rows" :key="r.n">
-          <RouterLink v-if="r.ep" :to="`/watch/${enc(id)}/${r.ep.id}`" :class="{ cur: r.ep.id === ep?.id }">
+          <RouterLink v-if="r.ep" :to="`/watch/${enc(id)}/${r.ep.id}`" :class="{ cur: r.ep.id === ep?.id, seen: isWatched(id, r.ep.id) }">
             <b>{{ r.n }}</b><span :title="epTitle(r.ep.title)">{{ epTitle(r.ep.title, season.name) }}</span>
-            <small>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · YouTube</template></small>
+            <small><span v-if="isWatched(id, r.ep.id)" class="tick" aria-label="看過">✓</span>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · YouTube</template></small>
           </RouterLink>
           <div v-else class="none"><b>{{ r.n }}</b><span>無此配音</span></div>
         </li>

@@ -17,6 +17,9 @@ watch(myList, () => save('aniqube:list:works', myList), { deep: true });
 // 有新集的基準：觀看者上次看這部作品時，它的最後更新時間（ISO）；只加進片單、沒看過的，從加入那一刻起算
 export const seen = reactive<Record<string, string>>(load('aniqube:seen:works', {}));
 watch(seen, () => save('aniqube:seen:works', seen), { deep: true });
+// 看過的集：每部作品記下播放超過 30 秒的影片 ID（見 CONTEXT.md「看過」），不設上限
+export const watched = reactive<Record<string, string[]>>(load('aniqube:watched:works', {}));
+watch(watched, () => save('aniqube:watched:works', watched), { deep: true });
 
 export const inList = (id: string) => myList.includes(id);
 export function toggleList(id: string) {
@@ -35,3 +38,8 @@ export function hasNew(w: { id: string; updated: string }): boolean {
   const base = seen[w.id] ?? (progress[w.id] ? new Date(progress[w.id].at).toISOString() : null);
   return !!base && w.updated > base;
 }
+
+export function markWatched(id: string, ep: string) { const l = (watched[id] ??= []); if (!l.includes(ep)) l.push(ep); }
+export const isWatched = (id: string, ep: string) => !!watched[id]?.includes(ep);
+/** 清除觀看紀錄：進度與看過的集一起清掉（只想從繼續觀看拿掉用 clearProgress） */
+export function clearHistory(id: string) { delete progress[id]; delete watched[id]; }

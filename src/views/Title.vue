@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { epTitle, fmtDur, metaLine, playlistUrl, posterOf } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
-import { inList, markSeen, progress, toggleList } from '../store.ts';
+import { clearHistory, inList, isWatched, markSeen, progress, toggleList, watched } from '../store.ts';
 import type { Detail, Work } from '../types.ts';
 import { episodeRows, firstSpot, locate } from '../work.ts';
 
@@ -39,6 +39,8 @@ function pickSeason(s: number) {
   const lang = season.value?.dubs[sel.value.d]?.lang;
   sel.value = { s, d: Math.max(0, detail.value!.seasons[s].dubs.findIndex((d) => d.lang === lang)) };
 }
+const hasHistory = computed(() => !!progress[id.value] || !!watched[id.value]?.length);
+function wipe() { if (confirm('清除這部作品的觀看紀錄？續播進度和看過的標記都會消失。')) clearHistory(id.value); }
 const enc = encodeURIComponent;
 </script>
 
@@ -63,6 +65,7 @@ const enc = encodeURIComponent;
       <div class="actions">
         <RouterLink class="btn primary" :to="`/watch/${enc(work.id)}`">▶ {{ resume ? '繼續觀看' : '播放' }}</RouterLink>
         <button class="btn" @click="toggleList(work.id)">{{ inList(work.id) ? '✓ 已在片單' : '＋ 加入片單' }}</button>
+        <button v-if="hasHistory" class="btn ghost" @click="wipe">清除觀看紀錄</button>
       </div>
 
       <template v-if="season && season.kind !== 'special'">
@@ -77,9 +80,9 @@ const enc = encodeURIComponent;
         </div>
         <ol class="eps">
           <li v-for="r in rows" :key="r.n">
-            <RouterLink v-if="r.ep" :to="`/watch/${enc(work.id)}/${r.ep.id}`" :class="{ cur: r.ep.id === progress[work.id]?.ep }">
+            <RouterLink v-if="r.ep" :to="`/watch/${enc(work.id)}/${r.ep.id}`" :class="{ cur: r.ep.id === progress[work.id]?.ep, seen: isWatched(work.id, r.ep.id) }">
               <b>{{ r.n }}</b><span :title="epTitle(r.ep.title)">{{ epTitle(r.ep.title, season.name) }}</span>
-              <small>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · 在 YouTube 觀看</template></small>
+              <small><span v-if="isWatched(work.id, r.ep.id)" class="tick" aria-label="看過">✓</span>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · 在 YouTube 觀看</template></small>
             </RouterLink>
             <div v-else class="none"><b>{{ r.n }}</b><span>無此配音</span></div>
           </li>

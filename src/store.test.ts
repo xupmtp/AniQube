@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hasNew, markSeen, myList, progress, seen, setProgress, toggleList } from './store.ts';
+import { clearHistory, clearProgress, hasNew, isWatched, markSeen, markWatched, myList, progress, seen, setProgress, toggleList } from './store.ts';
 
 test('hasNew：只看片單與繼續觀看裡的作品，以上次看到時的更新時間為基準', () => {
   const w = (id: string, updated: string) => ({ id, updated });
@@ -13,4 +13,15 @@ test('hasNew：只看片單與繼續觀看裡的作品，以上次看到時的�
   setProgress('b', 'ep', 100);                                                  // 舊進度沒有基準時，以進度時間起算
   assert.equal(hasNew(w('b', '2099-01-01T00:00:00Z')), true);
   myList.splice(0); for (const k of Object.keys(progress)) delete progress[k]; for (const k of Object.keys(seen)) delete seen[k];
+});
+
+test('看過：重複記同一集只留一筆；移除繼續觀看保留看過，清除觀看紀錄才全清', () => {
+  setProgress('w', 'e2', 40); markWatched('w', 'e1'); markWatched('w', 'e1'); markWatched('w', 'e2');
+  assert.equal(isWatched('w', 'e1'), true);
+  clearProgress('w');
+  assert.equal(progress.w, undefined);
+  assert.equal(isWatched('w', 'e2'), true);
+  setProgress('w', 'e2', 40); clearHistory('w');
+  assert.equal(progress.w, undefined);
+  assert.equal(isWatched('w', 'e1'), false);
 });
