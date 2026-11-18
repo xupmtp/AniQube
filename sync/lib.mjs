@@ -86,7 +86,7 @@ export function splitName(c) {
 
 const when = (e) => (e.animeSeason?.year ?? 9999) * 10 + (SEASON_ORDER[e.animeSeason?.season] ?? 0);
 
-/** 回傳 { anilistId, entry, how } 或 null。how 方便事後檢視可信度。 */
+/** 回傳 { anilistId, entry, how } 或 null。how 方便事後檢視可信度：manual／single／year／movie 可信，season／first／split／noseason 是推測。 */
 export function match(raw, index) {
   const hints = parseHints(raw);
   const cands = candidates(raw);
@@ -108,6 +108,8 @@ export function match(raw, index) {
         pick = tv[0] ?? sorted[0]; how = 'first';
       }
     } else pick = sorted[0];
+    // 標題寫第 2 季以後，卻只靠去掉季數的名稱對到唯一一筆：多半是資料集還沒有續季、對到了前作，列為待覆核
+    if (how === 'single' && hints.season > 1 && c !== cands[0]) how = 'noseason';
     return { anilistId: anilistId(pick), entry: pick, how: split ? 'split' : how };
   }
   return null;

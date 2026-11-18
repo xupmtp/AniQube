@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-18T09:03:57.113Z",
+ "generatedAt": "2026-11-18T09:07:46.156Z",
  "units": 0,
  "unmatched": [
   {
@@ -525,6 +525,18 @@
  ],
  "guessed": [
   {
+   "id": "PLKfpXGXJdV4Y",
+   "title": "佐佐木與文鳥小嗶 第二季｜Muse木棉花 動畫 線上看",
+   "anilistId": 152682,
+   "how": "noseason"
+  },
+  {
+   "id": "PLHuZZOeCIsd0",
+   "title": "偵探已經，死了。第二季｜Muse木棉花 動畫 線上看",
+   "anilistId": 128712,
+   "how": "noseason"
+  },
+  {
    "id": "PLKBxIqbuc1F4",
    "title": "CANDY CARIES 蛀在糖糖裡",
    "anilistId": 205772,
@@ -573,10 +585,22 @@
    "how": "season"
   },
   {
+   "id": "PL12UaAf_xzfocbdVYGW3DQghf1aTvBlUI",
+   "title": "骸骨騎士大人異世界冒險中 第二季｜Muse木棉花 動畫 線上看",
+   "anilistId": 132474,
+   "how": "noseason"
+  },
+  {
    "id": "PL12UaAf_xzfrCRdLGLVCIxnrK7N5KvPuo",
    "title": "無職轉生～到了異世界就拿出真本事～第3季｜Muse木棉花 動畫 線上看",
    "anilistId": 108465,
    "how": "first"
+  },
+  {
+   "id": "PL12UaAf_xzfoZ5hCeyp-Dz4aXl3BlCq-n",
+   "title": "超超超超超喜歡你的100個女朋友 第三季｜Muse木棉花 動畫 線上看",
+   "anilistId": 162694,
+   "how": "noseason"
   },
   {
    "id": "PL12UaAf_xzfpHcdvvTbOhauZRuRGB4F07",
@@ -591,6 +615,12 @@
    "how": "split"
   },
   {
+   "id": "PL12UaAf_xzfoQ_BoRjjGQNdOSgdGSJOem",
+   "title": "關於我轉生變成史萊姆這檔事(S4)｜Muse木棉花 動畫 線上看",
+   "anilistId": 101280,
+   "how": "noseason"
+  },
+  {
    "id": "PL12UaAf_xzfpYDLxpS6EhC0gxjbve16vK",
    "title": "EVERYDAY HOST CLUB 男公關俱樂部的歡樂日常｜Muse木棉花 動畫 線上看",
    "anilistId": 185584,
@@ -601,6 +631,30 @@
    "title": "CANDY CARIES 蛀在糖糖裡｜Muse木棉花 動畫 線上看",
    "anilistId": 205772,
    "how": "split"
+  },
+  {
+   "id": "PL12UaAf_xzfrovYvVuugbKfSUOYN5OEoO",
+   "title": "歡迎來到實力至上主義的教室 第四季 2年級篇 第一學期｜Muse木棉花 動畫 線上看",
+   "anilistId": 98659,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfo1gYyvMgvZN9w9iWyqcHa5",
+   "title": "異世界悠閒農家 第二季｜Muse木棉花 動畫 線上看",
+   "anilistId": 146850,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfqN3eyl6PIwUzG-6OLz7wRK",
+   "title": "入間同學入魔了 第四季｜Muse木棉花 動畫 線上看",
+   "anilistId": 107693,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfozjD1CFWt-xcn9_TEyH-m2",
+   "title": "葬送的芙莉蓮 第二季｜Muse木棉花 動畫 線上看",
+   "anilistId": 154587,
+   "how": "noseason"
   },
   {
    "id": "PL12UaAf_xzfr-b-I9yBNUdn25uxcoLFeV",
@@ -615,16 +669,76 @@
    "how": "split"
   },
   {
+   "id": "PL12UaAf_xzfqbmv2YpVr8gHkKjCB7JxoG",
+   "title": "轉生為第七王子，隨心所欲的魔法學習之路 S2｜Muse木棉花 動畫 線上看",
+   "anilistId": 156415,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfrZbTRYHIixHHClzQHtz9Gq",
+   "title": "第一神拳 Rising(S3)",
+   "anilistId": 19647,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfpOs7zYyB7MersezSzjRWKa",
+   "title": "第一神拳 New Challenger(S2)",
+   "anilistId": 5258,
+   "how": "noseason"
+  },
+  {
    "id": "PL12UaAf_xzfrrYxYr-n1f98iIkr_BDSPt",
    "title": "UniteUp! 眾星齊聚 -Uni:Birth-｜Muse木棉花 動畫 線上看",
    "anilistId": 154969,
    "how": "split"
   },
   {
+   "id": "PL12UaAf_xzfpJw_bEfaMsuxoPLacg6ht2",
+   "title": "平凡職業造就世界最強 S3｜Muse木棉花 動畫 線上看",
+   "anilistId": 100668,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfriLqlWYt_6FgqLm7LSCcom",
+   "title": "香格里拉·開拓異境～糞作獵手挑戰神作～第2季｜Muse木棉花 動畫 線上看",
+   "anilistId": 151970,
+   "how": "noseason"
+  },
+  {
    "id": "PL12UaAf_xzfpiCXDKpeKMCmU_p4YQLCSA",
    "title": "Re:Monster｜Muse木棉花 動畫 線上看",
    "anilistId": 169417,
    "how": "first"
+  },
+  {
+   "id": "PL12UaAf_xzfqhKzLKvUEe1swKm52mHmzF",
+   "title": "打工吧！魔王大人S2｜Muse木棉花 動畫 線上看",
+   "anilistId": 15809,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfoiDVWr3r5r49y6ouw0Wr5E",
+   "title": "歡迎來到實力至上主義的教室S3｜Muse木棉花 動畫 線上看",
+   "anilistId": 98659,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfoYGEIMJc-IQCvj9mOD1kqI",
+   "title": "在地下城尋求邂逅是否搞錯了什麼 第四季｜Muse木棉花 動畫 線上看",
+   "anilistId": 20920,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfpOd8MYIkcGbOWDVw8K4pkp",
+   "title": "歡迎來到實力至上主義的教室S2｜Muse木棉花 動畫 線上看",
+   "anilistId": 98659,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfrAfnXImGF4TCiF5s0p_FRq",
+   "title": "隊長小翼第二季 青少年篇｜Muse木棉花 動畫 線上看",
+   "anilistId": 100745,
+   "how": "noseason"
   },
   {
    "id": "PL12UaAf_xzfqWuCLEndYghppSJMWmZ5s9",
@@ -663,6 +777,18 @@
    "how": "first"
   },
   {
+   "id": "PL12UaAf_xzfqtjy8x9phtOVhwzEzcmPno",
+   "title": "熊熊勇闖異世界PUNCH！(第二季)｜Muse木棉花 動畫 線上看",
+   "anilistId": 127550,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfq0coyFUhj6l2ojUnC1HJpZ",
+   "title": "吸血鬼馬上死 第2季｜Muse木棉花 動畫 線上看",
+   "anilistId": 118103,
+   "how": "noseason"
+  },
+  {
    "id": "PL12UaAf_xzfqsmJ3c8p08DdQseNecjSQm",
    "title": "武裝少女Machiavellism｜Muse木棉花 動畫 線上看",
    "anilistId": 21851,
@@ -675,10 +801,34 @@
    "how": "split"
   },
   {
+   "id": "PL12UaAf_xzfrdwa7jGvZEfN9yZO_NK_8g",
+   "title": "PUI PUI 天竺鼠車車 駕訓班篇(第2季)｜Muse木棉花 動畫 線上看",
+   "anilistId": 150188,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfp-85UdBSyPrIpWB5DPewhp",
+   "title": "入間同學入魔了 第3季｜Muse木棉花 動畫 線上看",
+   "anilistId": 107693,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfrNBuQLjN_L2YDsqbZbQekZ",
+   "title": "【日語】路人超能100 第3季｜Muse木棉花 動畫 線上看",
+   "anilistId": 21507,
+   "how": "noseason"
+  },
+  {
    "id": "PL12UaAf_xzfr2q9mLawMPLiFdSftgnd6Y",
    "title": "Muv-Luv Alternative｜Muse木棉花 動畫 線上看",
    "anilistId": 112716,
    "how": "first"
+  },
+  {
+   "id": "PL12UaAf_xzfpyS4U1dcr-lMTy0MX04LH3",
+   "title": "出租女友 第2季｜Muse木棉花 動畫 線上看",
+   "anilistId": 113813,
+   "how": "noseason"
   },
   {
    "id": "PL12UaAf_xzfohrUxiuDckw4cX_ai256Kq",
@@ -705,10 +855,40 @@
    "how": "first"
   },
   {
+   "id": "PL12UaAf_xzfqyVrqC_zYcwiF-3GEfIdJ3",
+   "title": "Love Live! 虹咲學園 學園偶像同好會 第二季｜Muse木棉花 動畫 線上看",
+   "anilistId": 113970,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfrPd4PvQ34emKzl7lx05kdW",
+   "title": "平凡職業造就世界最強S2-S3｜Muse木棉花 動畫 線上看",
+   "anilistId": 100668,
+   "how": "noseason"
+  },
+  {
    "id": "PL12UaAf_xzfpGQBXbFQQedRZpN_Gmkxi8",
    "title": "闇芝居S10｜Muse木棉花 動畫 線上看",
    "anilistId": 19383,
    "how": "first"
+  },
+  {
+   "id": "PL12UaAf_xzfqfyFUuWic1FLpnMjqm3HaA",
+   "title": "【國語】鑽石王牌act2 (第三季)｜Muse木棉花 動畫 線上看",
+   "anilistId": 105749,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfqQiDLAhLsK7E8IJbkND5lQ",
+   "title": "【日語】鑽石王牌act2 (第三季)｜Muse木棉花 動畫 線上看",
+   "anilistId": 105749,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfr4xPjCCJlO-lYORZj0C018",
+   "title": "入間同學入魔了 第2季｜Muse木棉花 動畫 線上看",
+   "anilistId": 107693,
+   "how": "noseason"
   },
   {
    "id": "PL12UaAf_xzfrCAOTroy2IhYeGg7mYc6wO",
@@ -721,6 +901,12 @@
    "title": "PUI PUI 天竺鼠車車(日本重播版)｜Muse木棉花 動畫 線上看",
    "anilistId": 127690,
    "how": "split"
+  },
+  {
+   "id": "PL12UaAf_xzfoCCl52GkDiMPfrzuAfmsuG",
+   "title": "Re：從零開始的異世界生活S2｜Muse木棉花 動畫 線上看",
+   "anilistId": 21355,
+   "how": "noseason"
   },
   {
    "id": "PL12UaAf_xzfpbW9dg5kL4hlE3nhOEtJb_",
@@ -777,6 +963,30 @@
    "how": "split"
   },
   {
+   "id": "PL12UaAf_xzfpk1w09LkpfG2e2Y0ufbEr8",
+   "title": "在地下城尋求邂逅是否搞錯了什麼 第二季｜Muse木棉花 動畫 線上看",
+   "anilistId": 20920,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfqE9I9FVrM7E_nDEEUs0ojG",
+   "title": "城市獵人S2｜Muse木棉花 動畫 線上看",
+   "anilistId": 1470,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfqrzn_9tjsI9vADDQGgPNgL",
+   "title": "Hello!!黃金拼圖!(第二季)｜Muse木棉花 動畫 線上看",
+   "anilistId": 20654,
+   "how": "noseason"
+  },
+  {
+   "id": "PL12UaAf_xzfqpa0iftKnjXE2FgK3TtjgP",
+   "title": "【日語】路人超能100 第二季｜Muse木棉花 動畫 線上看",
+   "anilistId": 21507,
+   "how": "noseason"
+  },
+  {
    "id": "PL12UaAf_xzfrDLcMqZnvvIG0AEUKIb4UZ",
    "title": "BanG Dream!  第一季｜Muse木棉花 動畫 線上看",
    "anilistId": 87435,
@@ -811,6 +1021,12 @@
    "title": "【日語】暗殺教室 第一季｜Muse木棉花 動畫 線上看",
    "anilistId": 20755,
    "how": "season"
+  },
+  {
+   "id": "PL12UaAf_xzfqHGpk2XYoW8ywUR0JhfwgI",
+   "title": "科學超電磁砲Ｓ(第二季)｜Muse木棉花 動畫 線上看",
+   "anilistId": 16049,
+   "how": "noseason"
   },
   {
    "id": "PL12UaAf_xzfp68CzMQ3mAvXcYF44odMTG",
@@ -897,10 +1113,46 @@
    "how": "split"
   },
   {
+   "id": "PLALtynVZfj9k",
+   "title": "👸《黑化吧！聖女大人 第二季》(繁中字幕)【Ani-One】｜2026年10月新番",
+   "anilistId": 195209,
+   "how": "noseason"
+  },
+  {
+   "id": "PLGRvJfYS8L-o",
+   "title": "🗡《轉生就是劍 第二季》(繁中字幕)【Ani-One】｜2026年10月新番",
+   "anilistId": 139587,
+   "how": "noseason"
+  },
+  {
    "id": "PLBlPUP4bRXUc",
    "title": "🎮《闇機 DARK MACHINE》(繁中字幕)【Ani-One】｜2026年10月新番",
    "anilistId": 179876,
    "how": "split"
+  },
+  {
+   "id": "PLdtRGomJbcHg",
+   "title": "🔍《轉生貴族憑鑑定技能扭轉人生 第三季》(繁中字幕)【Ani-One】｜2026年10月新番",
+   "anilistId": 164702,
+   "how": "noseason"
+  },
+  {
+   "id": "PLALETbsFlgk0",
+   "title": "⚽️《青之蘆葦 第二季》(繁中字幕)【Ani-One】｜2026年10月新番",
+   "anilistId": 134732,
+   "how": "noseason"
+  },
+  {
+   "id": "PLe7uzvXO4ti0",
+   "title": "💞《相反的你和我 第二季》(繁中字幕)【Ani-One】| 2026年7月新番",
+   "anilistId": 184951,
+   "how": "noseason"
+  },
+  {
+   "id": "PLHVglNU6OvbA",
+   "title": "🐾《文豪野犬 汪！第二季》(繁中字幕)【Ani-One】| 2026年7月新番",
+   "anilistId": 120150,
+   "how": "noseason"
   },
   {
    "id": "PLC18xlbCdwtSFSTv-AE7-0smqPNI2GW4A",
@@ -915,6 +1167,30 @@
    "how": "first"
   },
   {
+   "id": "PLC18xlbCdwtSaRf3SOU6rtsm0LDxmt64K",
+   "title": "🍩《公主殿下，「拷問」的時間到了 第二季》(繁中字幕) 【Ani-One】| 2026年1月新番",
+   "anilistId": 166522,
+   "how": "noseason"
+  },
+  {
+   "id": "PLC18xlbCdwtRRKDJeuNQbZHXilmkAhnDY",
+   "title": "🚘《燃油車鬥魂 第三季》(繁中字幕)【Ani-One】| 2026年1月新番",
+   "anilistId": 143327,
+   "how": "noseason"
+  },
+  {
+   "id": "PLC18xlbCdwtQlW4OQaVCG0MufRkiq3ZuX",
+   "title": "💙《終究，與你相戀。第二季》(繁中字幕)【Ani-One】| 2026年1月新番",
+   "anilistId": 175409,
+   "how": "noseason"
+  },
+  {
+   "id": "PLC18xlbCdwtTsCbpGXzYML-iBGsP0iTqz",
+   "title": "🛡️《盾之勇者成名錄 Season 4》(繁中字幕)【Ani-One】| 2025年7月新番",
+   "anilistId": 99263,
+   "how": "noseason"
+  },
+  {
    "id": "PLC18xlbCdwtRBh-g4zUg8HRvO6kC6v9e0",
    "title": "🗡️《Clevatess - 魔獸之王與嬰兒與屍之勇者》(繁中字幕)【Ani-One】| 2025年7月新番",
    "anilistId": 178869,
@@ -925,6 +1201,18 @@
    "title": "🎨《Bad Girl 不良少女》(繁中字幕)【Ani-One】| 2025年7月新番",
    "anilistId": 178675,
    "how": "split"
+  },
+  {
+   "id": "PLC18xlbCdwtRQRL9Rb9kF8dAwX3xaqn-L",
+   "title": "🛡️《盾之勇者成名錄 Season 2》(繁中字幕)【Ani-One】",
+   "anilistId": 99263,
+   "how": "noseason"
+  },
+  {
+   "id": "PLC18xlbCdwtRB3v2ricyQUO6H3irpqrdn",
+   "title": "🌠《她來自煩星 第二季》(繁中字幕)【Ani-One】| 2024年1月新番",
+   "anilistId": 143277,
+   "how": "noseason"
   },
   {
    "id": "PLC18xlbCdwtRtKVrSyj6HCINhJlnAxOaJ",
@@ -943,6 +1231,18 @@
    "title": "💗《偽戀》第二季 (繁中字幕)【Ani-One】",
    "anilistId": 20876,
    "how": "season"
+  },
+  {
+   "id": "PLC18xlbCdwtSoMtcbwQJQijWBKQTKhuaB",
+   "title": "🛡️《盾之勇者成名錄 Season 3》(繁中字幕)【Ani-One】| 2023年10月新番",
+   "anilistId": 99263,
+   "how": "noseason"
+  },
+  {
+   "id": "PLC18xlbCdwtQGlyMs9SVOYp2lP-myamDL",
+   "title": "🌕《我想成為影之強者！第2季》(繁中字幕)【Ani-One】| 2023年10月新番",
+   "anilistId": 130298,
+   "how": "noseason"
   },
   {
    "id": "PLC18xlbCdwtRE0CgQa2cdQyTPw9Xpdc6y",
@@ -985,6 +1285,18 @@
    "title": "《肌肉魔法使-MASHLE-》特別篇 (第6.5話)  (繁中字幕 | 日語原聲)【Ani-One】",
    "anilistId": 151801,
    "how": "split"
+  },
+  {
+   "id": "PLExsTZ1sMC2A",
+   "title": "《大王饶命 第3季》Master's Mercy 3 | 腾讯视频 - 动漫",
+   "anilistId": 120220,
+   "how": "noseason"
+  },
+  {
+   "id": "PLxOs22nkVmnL5vOPsTzwzO_s1OkFt2mJs",
+   "title": "ENG SUB《画江湖之不良人第七季》",
+   "anilistId": 102561,
+   "how": "noseason"
   },
   {
    "id": "PLxOs22nkVmnI7P-9HiIze_GH7lnzgNrST",
@@ -1067,6 +1379,6 @@
   "works": 629,
   "seasons": 974,
   "unmatched": 104,
-  "guessed": 87
+  "guessed": 139
  }
 }

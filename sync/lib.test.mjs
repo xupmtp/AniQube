@@ -237,3 +237,9 @@ test('cleanDesc：騰訊只取「简介」之後，刪宣傳行與表情符號�
   const long = '由韓國漫畫家孫齊皓擔任原作、李光洙作畫，於 LINE WEBTOON 上連載的漫畫作品《大貴族》，故事描述吸血鬼貴族中的貴族「萊」，在沉睡了 820 年之後再度甦醒。';
   assert.equal(cleanDesc(long), long);                                            // 長段落提到 LINE 不該被整段刪掉
 });
+
+test('match：標題寫第二季、資料集只有前作時標成 noseason（待覆核），不當成可信的 single', () => {
+  const idx = buildIndex([{ title: 'Ao Ashi', type: 'TV', synonyms: ['青之蘆葦'], animeSeason: { year: 2022 }, sources: ['https://anilist.co/anime/134732'] }]);
+  assert.equal(match('⚽️《青之蘆葦 第二季》| 2026年10月新番', idx).how, 'noseason');
+  assert.equal(match('青之蘆葦【Ani-One】', idx).how, 'single');
+});
