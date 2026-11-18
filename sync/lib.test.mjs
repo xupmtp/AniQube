@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, dropCovered, splitName, dubLabel, dropSameTitle, norm } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, norm } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -88,6 +88,7 @@ test('classifyVideo：不能嵌入或年齡限制 → 站外集，不是排除',
 test('episodeNumber 與排序', () => {
   assert.equal(episodeNumber('《仙逆》Renegade Immortal EP 165 | x'), 165);
   assert.equal(episodeNumber('#ULTRA會員搶先看《BLEACH》#50 (繁中字幕'), 50);
+  assert.equal(episodeNumber('葬送的芙莉蓮 首播100分鐘 第01-04話｜Muse木棉花'), 1);
   assert.equal(episodeNumber('某某 第12集'), 12);
   assert.equal(episodeNumber('某某 2025年新番'), null);
   const sorted = sortEpisodes([{ title: 'EP10' }, { title: 'EP2' }, { title: 'EP1' }]);
@@ -116,12 +117,6 @@ test('buildSeasons：過濾、排除混合清單、不收空清單', () => {
   assert.equal(manual.length, 0);
 });
 
-test('dropCovered：被涵蓋的重複季丟掉，相同的留一份', () => {
-  const s = (id, ...e) => ({ playlistId: id, episodes: e.map((x) => ({ id: x })) });
-  const out = dropCovered([s('a', '1', '2'), s('b', '1', '2', '3'), s('c', '1', '2', '3'), s('d', '9')]);
-  assert.deepEqual(out.map((x) => x.playlistId), ['b', 'd']);
-});
-
 test('buildStandalones：只收不在季裡的長片', () => {
   const ups = [v({ id: 'u1', title: '劇場版 某', sec: 6000 }), v({ id: 'u2', title: '某 EP1', sec: 1440 }), v({ id: 'u3', title: '特別篇', sec: 1500 }), v({ id: 'u4', title: '【動漫Gossip】劇場版開箱', sec: 1500 }), v({ id: 'u5', title: 'Love Live! EP1｜《劇場版 Love Live!》上映！', sec: 1440 })];
   const s = buildStandalones(ups, new Set(['u3']), cfg, ch('muse'), new Set());
@@ -144,9 +139,47 @@ test('dubLabel：只認明確的配音標記', () => {
   assert.equal(dubLabel('《勇者、辭職不幹了》(日語原聲 | 繁中字幕)【Ani-One】'), null);
 });
 
-test('dropSameTitle：同頻道同名只留集數最多的，單篇不併', () => {
-  const s = (id, channel, title, eps, format = 'TV') => ({ id, channel, title, eps, format });
-  const out = dropSameTitle([s('a', 'muse', '甲', 19), s('b', 'muse', '甲', 20), s('c', 'anione', '甲', 5),
-    s('d', 'muse', '甲（國語）', 3), s('e', 'tencent', '特別篇', 1, 'SINGLE'), s('f', 'tencent', '特別篇', 1, 'SINGLE')]);
-  assert.deepEqual(out.map((x) => x.id), ['b', 'c', 'd', 'e', 'f']);
+
+test('seasonNo / workBase：季數與作品名', () => {
+  assert.equal(seasonNo('我的英雄學院 第六季'), 6);
+  assert.equal(seasonNo('爆漫王S1-S3'), 1);
+  assert.equal(seasonNo('Re：從零開始的異世界生活S3 襲擊篇+反擊篇'), 3);
+  assert.equal(seasonNo('我的英雄學院'), null);
+  assert.equal(workBase('我的英雄學院 第六季'), '我的英雄學院');
+  assert.equal(workBase('JOJO的奇妙冒險 第四季 (黃金之風)'), 'JOJO的奇妙冒險');
+  assert.equal(workBase('Re：從零開始的異世界生活S3 襲擊篇+反擊篇'), 'Re：從零開始的異世界生活');
+  assert.equal(workBase('工作細胞系列'), '工作細胞');
+  assert.equal(workBase('UQ HOLDER！悠久持有者！'), 'UQ HOLDER！悠久持有者！');
 });
+
+test('groupWorks：分季、配音版、合輯、單篇', () => {
+  const it = (id, name, o = {}) => ({ id, name, rawTitle: o.raw ?? name, lang: o.lang ?? '日語', single: !!o.single, order: o.order ?? 0, episodes: (o.eps ?? [id]).map((x) => ({ id: x })) });
+  const works = groupWorks([
+    it('h2', '我的英雄學院 第二季', { order: 1 }), it('h1', '我的英雄學院 第一季', { order: 2 }),
+    it('jp', '獵人HUNTER×HUNTER', { eps: ['j1', 'j2'] }), it('tw', '獵人HUNTER×HUNTER', { lang: '國語', eps: ['t1'] }),
+    it('dup', '獵人HUNTER×HUNTER', { eps: ['j1'] }),                                                      // 同季同配音 → 留集數多的
+    it('s1', '佐佐木 第一季', { eps: ['x1', 'x2'] }), it('s2', '佐佐木 第二季', { eps: ['x3'] }),
+    it('all', '佐佐木 S1-S2', { raw: '佐佐木 S1-S2', eps: ['x1', 'x2', 'x3'] }),            // 被單季涵蓋 → 不列
+    it('mv', '獵人HUNTER×HUNTER 劇場版【緋色幻影】', { single: true }), it('mv2', '獵人HUNTER×HUNTER 劇場版【緋色幻影】', { single: true, lang: '國語' }), it('lone', '劇場版 某電影', { single: true }),
+  ]);
+  const by = Object.fromEntries(works.map((w) => [w.base, w]));
+  assert.deepEqual(Object.keys(by).sort(), ['佐佐木', '劇場版 某電影', '我的英雄學院', '獵人HUNTER×HUNTER']);
+  assert.deepEqual(by['我的英雄學院'].seasons.map((s) => s.name), ['我的英雄學院 第一季', '我的英雄學院 第二季']);
+  const hunter = by['獵人HUNTER×HUNTER'].seasons;
+  assert.deepEqual(hunter.map((s) => s.kind), ['season', 'special']);
+  assert.deepEqual(hunter[0].dubs.map((d) => d.id).sort(), ['jp', 'tw']);
+  assert.deepEqual(hunter[1].dubs.map((d) => d.id), ['mv', 'mv2']);                   // 單篇也配配音版
+  assert.deepEqual(by['佐佐木'].seasons.map((s) => s.name), ['佐佐木 第一季', '佐佐木 第二季']);
+  const colls = groupWorks([it('a', '某作', { raw: '某作(全部集數)', eps: ['1', '2', '3'] }), it('b', '某作S1-S2', { raw: '某作S1-S2', eps: ['1', '2'] }), it('c', '某作 第二季', { eps: ['2'] })]);
+  assert.deepEqual(colls[0].seasons.map((s) => s.name), ['某作', '某作 第二季']);       // 被別的合輯涵蓋的合輯也不列
+    const keep = groupWorks([it('p', '佐佐木', { eps: ['x1', 'x2', 'x3', 'x4'] }), it('q', '佐佐木 第二季', { eps: ['x3'] })]);
+  assert.deepEqual(keep[0].seasons.map((s) => [s.name, s.kind]), [['佐佐木', 'collection'], ['佐佐木 第二季', 'season']]); // 合輯有單季沒有的集 → 保留
+  assert.equal(groupWorks([it('z', '某作 第二季')], { z: '另一部' })[0].base, '另一部');   // 人工作品對應表
+});
+
+test('sortEpisodes：合併版涵蓋的集都有單獨上傳就拿掉，否則保留並取第一個數字', () => {
+  const e = (title) => ({ id: title, title });
+  const out = sortEpisodes([e('首播 第01-04話'), e('第05話'), e('第06話'), e('第07話'), e('第08話'), e('120分鐘 第07-08話')]);
+  assert.deepEqual(out.map((x) => [x.n, x.title]), [[1, '首播 第01-04話'], [5, '第05話'], [6, '第06話'], [7, '第07話'], [8, '第08話']]);
+});
+

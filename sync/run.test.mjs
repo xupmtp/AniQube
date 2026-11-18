@@ -19,28 +19,29 @@ test('run.mjs 端對端（假資料）', () => {
   console.log(out);
 
   const read = (f) => JSON.parse(readFileSync(join(dir, 'public/data', f)));
-  const idx = read('index.json').seasons;
-  const by = Object.fromEntries(idx.map((s) => [s.id, s]));
-  assert.deepEqual(Object.keys(by).sort(), ['plA1', 'plB', 'v-movieA']);       // 週邊、成人向、預告都不在
+  const idx = read('index.json').works;
+  const by = Object.fromEntries(idx.map((w) => [w.title, w]));
+  assert.deepEqual(Object.keys(by).sort(), ['仙逆', '劇場版 某不可說的電影', '某部動畫']); // 週邊、成人向、預告都不在
 
-  const a = by.plA1;
-  assert.equal(a.title, '某部動畫');
+  const a = by['某部動畫'];
   assert.deepEqual(a.genres, ['動作']);                                         // 不在對照表的題材不顯示
   assert.deepEqual(a.tags, ['異世界']);                                         // rank<60 的標籤不收
   assert.equal(a.eps, 3);                                                       // a1 a2 + 站外集 noEmb；扣掉 PV/會員/搶先看/台灣封鎖
+  assert.equal(a.seasons, 1);
   assert.equal(a.score, 81);
   assert.equal(a.anilistId, 100);
-  const detail = read('seasons/plA1.json');
-  assert.deepEqual(detail.episodes.map((e) => e.id), ['a1', 'a2', 'noEmb']);
-  assert.equal(detail.episodes.find((e) => e.id === 'noEmb').ext, true);
+  const detail = read(`works/${a.id}.json`);
+  const eps = detail.seasons[0].dubs[0].episodes;
+  assert.deepEqual(eps.map((e) => e.id), ['a1', 'a2', 'noEmb']);
+  assert.equal(eps.find((e) => e.id === 'noEmb').ext, true);
   assert.equal(detail.desc, '一段 簡介');
+  assert.equal(detail.members, 'plA1');                                         // 清單裡有會員限定集 → 作品頁提示
 
-  const b = by.plB;
-  assert.equal(b.title, '仙逆');
+  const b = by['仙逆'];
   assert.equal(b.origin, 'CN');
   assert.equal(b.eps, 2);                                                       // 預告被濾掉
 
-  const m = by['v-movieA'];
+  const m = by['劇場版 某不可說的電影'];
   assert.equal(m.format, 'SINGLE');
   assert.equal(m.anilistId, null);
 

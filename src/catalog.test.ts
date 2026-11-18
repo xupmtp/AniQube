@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyFilters, filterSeasons, sortSeasons, topGenres, pickHero, fmtDur, metaLine, epTitle } from './catalog.ts';
-import type { Season } from './types.ts';
+import { emptyFilters, filterWorks, sortWorks, topGenres, pickHero, fmtDur, metaLine, epTitle } from './catalog.ts';
+import type { Work } from './types.ts';
 
-const s = (o: Partial<Season>): Season => ({
-  id: 'x', title: '某作品', channel: 'muse', origin: 'JP', alt: [], genres: [], tags: [], year: 2024, season: 'SPRING',
-  status: 'FINISHED', format: 'TV', score: 80, popularity: 1, trending: 0, eps: 12, totalEps: 12, views: 0,
+const s = (o: Partial<Work>): Work => ({
+  id: 'x', title: '某作品', channel: 'muse', origin: 'JP', alt: [], genres: [], tags: [], facets: [], year: 2024, season: 'SPRING',
+  status: 'FINISHED', format: 'TV', score: 80, popularity: 1, trending: 0, seasons: 1, eps: 12, totalEps: 12, views: 0,
   updated: '2026-01-01T00:00:00Z', thumb: 't', cover: null, banner: null, anilistId: 1, how: 'single', ...o,
+  facets: o.facets ?? [...(o.genres ?? []), ...(o.tags ?? [])],
 });
 const all = [
   s({ id: 'a', title: '間諜家家酒', alt: ['Spy x Family', 'スパイファミリー'], genres: ['動作', '喜劇'], popularity: 100, score: 81, year: 2022, season: 'SPRING', views: 5 }),
@@ -16,7 +17,7 @@ const all = [
 const ids = (l: Season[]) => l.map((x) => x.id).join('');
 
 test('搜尋比對中文名、英文別名、日文別名，忽略大小寫與標點', () => {
-  const f = (q: string) => ids(filterSeasons(all, { ...emptyFilters(), q }));
+  const f = (q: string) => ids(filterWorks(all, { ...emptyFilters(), q }));
   assert.equal(f('間諜'), 'a');
   assert.equal(f('SPY X family'), 'a');
   assert.equal(f('スパイ'), 'a');
@@ -25,7 +26,7 @@ test('搜尋比對中文名、英文別名、日文別名，忽略大小寫與�
 });
 
 test('篩選：題材（含標籤）要全部符合，其餘欄位精確比對', () => {
-  const f = (o: object) => ids(filterSeasons(all, { ...emptyFilters(), ...o }));
+  const f = (o: object) => ids(filterWorks(all, { ...emptyFilters(), ...o }));
   assert.equal(f({ genres: ['動作'] }), 'ac');
   assert.equal(f({ genres: ['動作', '奇幻'] }), 'c');
   assert.equal(f({ genres: ['修仙'] }), 'b');
@@ -37,11 +38,11 @@ test('篩選：題材（含標籤）要全部符合，其餘欄位精確比對',
 });
 
 test('排序：沒有評分的排最後、首播時間含季度、名稱用繁中排序', () => {
-  assert.equal(ids(sortSeasons(all, 'popularity')), 'bca');
-  assert.equal(ids(sortSeasons(all, 'score')), 'cab');
-  assert.equal(ids(sortSeasons(all, 'year')), 'bac');
-  assert.equal(ids(sortSeasons(all, 'updated'))[0], 'b');
-  assert.equal(ids(sortSeasons(all, 'views')), 'bca');
+  assert.equal(ids(sortWorks(all, 'popularity')), 'bca');
+  assert.equal(ids(sortWorks(all, 'score')), 'cab');
+  assert.equal(ids(sortWorks(all, 'year')), 'bac');
+  assert.equal(ids(sortWorks(all, 'updated'))[0], 'b');
+  assert.equal(ids(sortWorks(all, 'views')), 'bca');
   assert.equal(all.map((x) => x.id).join(''), 'abc'); // 不改動原陣列
 });
 
@@ -75,4 +76,13 @@ test('epTitle：去掉宣傳尾巴與字幕標示', () => {
   assert.equal(epTitle('《BLEACH 死神》第356話 (繁中字幕 | 日語原聲)【Ani-One】'), '《BLEACH 死神》第356話');
   assert.equal(epTitle('ENG SUB《诛仙3》Jade Dynasty S3 EP78 |  | 腾讯视频 - 动漫'), 'ENG SUB《诛仙3》Jade Dynasty S3 EP78');
   assert.equal(epTitle('第1集'), '第1集');
+});
+
+test('多季作品顯示季數', () => {
+  assert.match(metaLine(s({ seasons: 6, eps: 11, totalEps: null })), /6 季 · 11 集可看/);
+});
+
+test('題材篩選用所有季的聯集（facets），不只卡片上顯示的', () => {
+  const w = s({ id: 'z', genres: ['動作'], facets: ['動作', '校園'] });
+  assert.equal(ids(filterWorks([w], { ...emptyFilters(), genres: ['校園'] })), 'z');
 });

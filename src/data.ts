@@ -12,7 +12,7 @@ export function loadCatalog(): Promise<Catalog> {
 }
 
 export async function loadDetail(id: string): Promise<Detail> {
-  const r = await fetch(url(`seasons/${encodeURIComponent(id)}.json`));
+  const r = await fetch(url(`works/${encodeURIComponent(id)}.json`));
   if (!r.ok) throw new Error(`找不到這部作品 (${r.status})`);
   return r.json() as Promise<Detail>;
 }

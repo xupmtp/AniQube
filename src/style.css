@@ -93,7 +93,15 @@ main { min-height: calc(100vh - 120px); }
 .bar h1 small { color: var(--mute); font-weight: 400; font-size: 13px; margin-left: 8px; }
 .back { color: var(--accent2); font-size: 13px; }
 .ept { color: var(--mute); margin: 0; }
-.eps.side { max-height: calc(100vh - var(--nav)); overflow-y: auto; border-left: 1px solid var(--line); position: sticky; top: var(--nav); }
+.side { max-height: calc(100vh - var(--nav)); overflow-y: auto; border-left: 1px solid var(--line); position: sticky; top: var(--nav); }
+.side .pickers { padding: 12px; margin: 0; border-bottom: 1px solid var(--line); }
+.pickers { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 30px 0 8px; }
+.pickers h2 { margin: 0 8px 0 0 !important; }
+.pickers select { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); max-width: 100%; }
+.eps .none { display: grid; grid-template-columns: 2.6em 1fr; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); color: var(--mute); opacity: .6; }
+.eps .alt-dub { padding-top: 4px; padding-bottom: 4px; color: var(--accent2); font-size: 13px; }
+.note { color: var(--mute); font-size: 14px; }
+.note a { color: var(--accent2); margin-left: 6px; }
 
 .about { max-width: 720px; margin: 0 auto; padding: calc(var(--nav) + 40px) 4vw 40px; }
 .about a { color: var(--accent2); text-decoration: underline; }
@@ -101,7 +109,7 @@ main { min-height: calc(100vh - 120px); }
 
 @media (max-width: 900px) {
   .watch { grid-template-columns: 1fr; }
-  .eps.side { position: static; max-height: none; border-left: 0; }
+  .side { position: static; max-height: none; border-left: 0; }
   .nav { gap: 14px; } .logo small { display: none; }
   .card:hover { transform: none; }
   .arrow { display: none; }

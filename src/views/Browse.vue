@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { LocationQueryValue } from 'vue-router';
-import { FORMATS, ORIGINS, SORTS, STATUS, filterSeasons, sortSeasons, topGenres } from '../catalog.ts';
+import { FORMATS, ORIGINS, SORTS, STATUS, filterWorks, sortWorks, topGenres } from '../catalog.ts';
 import type { Filters, SortKey } from '../catalog.ts';
 import { loadCatalog } from '../data.ts';
 import type { Catalog } from '../types.ts';
@@ -36,10 +36,10 @@ const toggleGenre = (g: string) => {
 };
 
 watch(() => route.query, () => { limit.value = 60; });
-const seasons = computed(() => cat.value?.seasons ?? []);
-const result = computed(() => sortSeasons(filterSeasons(seasons.value, filters.value), sort.value));
-const genreChips = computed(() => topGenres(seasons.value, 30));
-const years = computed(() => [...new Set(seasons.value.map((s) => s.year).filter((y): y is number => y != null))].sort((a, b) => b - a));
+const works = computed(() => cat.value?.works ?? []);
+const result = computed(() => sortWorks(filterWorks(works.value, filters.value), sort.value));
+const genreChips = computed(() => topGenres(works.value, 30));
+const years = computed(() => [...new Set(works.value.map((s) => s.year).filter((y): y is number => y != null))].sort((a, b) => b - a));
 const active = computed(() => Object.keys(route.query).some((k) => k !== 'sort'));
 </script>
 
@@ -89,7 +89,7 @@ const active = computed(() => Object.keys(route.query).some((k) => k !== 'sort')
         <button v-if="active" class="link" @click="router.replace({ query: {} })">清除篩選</button>
       </p>
       <div v-if="result.length" class="grid">
-        <Card v-for="s in result.slice(0, limit)" :key="s.id" :season="s" />
+        <Card v-for="w in result.slice(0, limit)" :key="w.id" :work="w" />
       </div>
       <p v-else class="state">沒有符合的作品。換個關鍵字，或清除篩選看看。</p>
       <button v-if="result.length > limit" class="btn more" @click="limit += 60">顯示更多</button>

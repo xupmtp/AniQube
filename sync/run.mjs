@@ -1,8 +1,9 @@
 // 每日同步：YouTube 片源頻道 → 過濾 → 對應 AniList → public/data。
 // 用法：YOUTUBE_API_KEY=金鑰 npm run sync     （金鑰只從環境變數讀，不寫進任何檔案）
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { zstdDecompressSync } from 'node:zlib';
-import { buildIndex, buildSeasons, buildStandalones, cleanTitle, dropCovered, dropSameTitle, dubLabel, match, toTrad } from './lib.mjs';
+import { buildIndex, buildSeasons, buildStandalones, cleanTitle, dubLabel, groupWorks, match, toTrad } from './lib.mjs';
 import { BLOCKED_GENRES, GENRES, TAGS } from './taxonomy.mjs';
 
 const KEY = process.env.YOUTUBE_API_KEY;
@@ -10,6 +11,7 @@ if (!KEY && !process.env.USE_RAW_CACHE) { console.error('缺少環境變數 YOUT
 
 const cfg = JSON.parse(readFileSync('sources.json', 'utf8'));
 const manual = existsSync('manual-matches.json') ? JSON.parse(readFileSync('manual-matches.json', 'utf8')) : {};
+const manualWorks = existsSync('manual-works.json') ? JSON.parse(readFileSync('manual-works.json', 'utf8')) : {};
 const OUT = 'public/data';
 const QUOTA = 9000; // 每日額度 10,000，留一點餘裕
 let units = 0;
@@ -81,7 +83,7 @@ async function fetchChannel(ch) {
 
 function buildChannel(ch, { members: m, uploadIds, lists, videos: v }) {
   const members = new Set(m), videos = new Map(v.map((x) => [x.id, x]));
-  const seasons = dropCovered(buildSeasons(lists, videos, cfg, ch, members));
+  const seasons = buildSeasons(lists, videos, cfg, ch, members);
   const used = new Set(seasons.flatMap((s) => s.episodes.map((e) => e.id)));
   const uploads = uploadIds.map((id) => videos.get(id)).filter(Boolean);
   return [...seasons, ...buildStandalones(uploads, used, cfg, ch, members)].map((s) => ({ ...s, channel: ch }));
@@ -145,51 +147,71 @@ for (const s of raw) {
 }
 const meta = await anilist([...new Set(raw.map((s) => s.link?.anilistId).filter(Boolean))]);
 
-const seasons = [];
 const report = { unmatched: [], guessed: [], dropped: [] };
-for (const s of raw) {
+const ORIGINAL = { JP: '日語', CN: '國語', KR: '韓語' }; // 沒標配音的清單就是原聲
+const genresOf = (a) => (a?.genres ?? []).filter((g) => GENRES[g]).map((g) => GENRES[g]);
+const tagsOf = (a) => (a?.tags ?? []).filter((t) => !t.isMediaSpoiler && t.rank >= 60 && TAGS[t.name]).map((t) => TAGS[t.name]);
+const items = [];
+raw.forEach((s, order) => {
   const a = s.link ? meta.get(s.link.anilistId) : null;
-  if (a?.genres.some((g) => BLOCKED_GENRES.includes(g))) { report.dropped.push({ id: s.playlistId, title: s.rawTitle, why: 'adult' }); continue; }
-  const dub = dubLabel(s.rawTitle);
-  const name = cleanTitle(s.rawTitle) + (dub ? `（${dub}）` : '');
-  const title = s.channel.origin === 'CN' ? toTrad(name) : name;
-  const tags = (a?.tags ?? []).filter((t) => !t.isMediaSpoiler && t.rank >= 60 && TAGS[t.name]).map((t) => TAGS[t.name]);
-  const entry = s.link?.entry;
-  seasons.push({
-    id: s.playlistId, title, channel: s.channel.key, origin: a?.countryOfOrigin ?? s.channel.origin,
-    alt: [...new Set([entry?.title, ...(entry?.synonyms ?? []).slice(0, 8)].filter(Boolean))],
-    genres: (a?.genres ?? []).filter((g) => GENRES[g]).map((g) => GENRES[g]), tags,
-    year: a?.seasonYear ?? entry?.animeSeason?.year ?? null, season: a?.season ?? entry?.animeSeason?.season ?? null,
-    status: a?.status ?? entry?.status ?? null, format: s.single ? 'SINGLE' : (a?.format ?? entry?.type ?? null),
-    score: a?.averageScore ?? null, popularity: a?.popularity ?? 0, trending: a?.trending ?? 0,
-    eps: s.episodes.length, totalEps: a?.episodes ?? entry?.episodes ?? null,
-    views: s.episodes.reduce((n, e) => n + e.views, 0), updated: s.episodes.reduce((m, e) => (e.at > m ? e.at : m), ''),
-    thumb: s.episodes[0].id, cover: a?.coverImage?.large ?? null, banner: a?.bannerImage ?? null,
-    anilistId: s.link?.anilistId ?? null, how: s.link?.how ?? null,
-    _desc: plain(a?.description).slice(0, 300), _eps: s.episodes,
+  if (a?.genres.some((g) => BLOCKED_GENRES.includes(g))) { report.dropped.push({ id: s.playlistId, title: s.rawTitle, why: 'adult' }); return; }
+  const name = cleanTitle(s.rawTitle);
+  items.push({
+    id: s.playlistId, name: s.channel.origin === 'CN' ? toTrad(name) : name, rawTitle: s.rawTitle, single: !!s.single, order,
+    channel: s.channel, lang: dubLabel(s.rawTitle) ?? ORIGINAL[s.channel.origin], members: s.members ?? 0,
+    episodes: s.episodes, a, entry: s.link?.entry, link: s.link,
   });
   if (!s.link) report.unmatched.push({ id: s.playlistId, title: s.rawTitle, eps: s.episodes.length });
   else if (['first', 'season', 'split'].includes(s.link.how)) report.guessed.push({ id: s.playlistId, title: s.rawTitle, anilistId: s.link.anilistId, how: s.link.how });
+});
+
+// 作品：卡片顯示最新一季的資料、年份用首季；篩選與搜尋用所有季的聯集（docs/adr/0003）
+const works = [], workFiles = [];
+for (const ch of cfg.channels) {
+  for (const w of groupWorks(items.filter((it) => it.channel.key === ch.key), manualWorks)) {
+    const orig = ORIGINAL[ch.origin];
+    const pick = (season) => season.dubs.find((d) => d.lang === orig) ?? season.dubs[0];
+    const main = w.seasons.filter((x) => x.kind !== 'special');
+    const first = pick(main[0] ?? w.seasons[0]), latest = pick(main.at(-1) ?? w.seasons.at(-1));
+    const all = w.seasons.flatMap((x) => x.dubs), a = latest.a, e = latest.entry;
+    const allEps = all.flatMap((d) => d.episodes);
+    const id = createHash('sha1').update(`${ch.key}|${w.key}`).digest('hex').slice(0, 10);
+    works.push({
+      id, title: w.base, channel: ch.key, origin: a?.countryOfOrigin ?? ch.origin,
+      alt: [...new Set(all.flatMap((d) => [d.name, d.entry?.title, ...(d.entry?.synonyms ?? []).slice(0, 8)]))].filter((x) => x && x !== w.base),
+      genres: genresOf(a), tags: tagsOf(a), facets: [...new Set(all.flatMap((d) => [...genresOf(d.a), ...tagsOf(d.a)]))],
+      year: first.a?.seasonYear ?? first.entry?.animeSeason?.year ?? null, season: first.a?.season ?? first.entry?.animeSeason?.season ?? null,
+      status: a?.status ?? e?.status ?? null,
+      format: main.length ? (a?.format ?? e?.type ?? 'TV') : (a?.format ?? 'SINGLE'),
+      score: a?.averageScore ?? null, popularity: Math.max(0, ...all.map((d) => d.a?.popularity ?? 0)), trending: Math.max(0, ...all.map((d) => d.a?.trending ?? 0)),
+      seasons: main.length, eps: w.seasons.reduce((n, x) => n + pick(x).episodes.length, 0),
+      totalEps: main.length === 1 ? (a?.episodes ?? e?.episodes ?? null) : null,
+      views: allEps.reduce((n, x) => n + x.views, 0), updated: allEps.reduce((m, x) => (x.at > m ? x.at : m), ''),
+      thumb: latest.episodes[0].id, cover: a?.coverImage?.large ?? null, banner: a?.bannerImage ?? null,
+      anilistId: latest.link?.anilistId ?? null, how: latest.link?.how ?? null,
+    });
+    const desc = [...all].reverse().map((d) => plain(d.a?.description)).find(Boolean) ?? '';
+    workFiles.push({
+      id, desc: desc.slice(0, 300), members: main.map(pick).find((d) => d.members > 0)?.id ?? null,
+      seasons: w.seasons.map((x) => ({
+        name: x.name, kind: x.kind,
+        dubs: [...x.dubs].sort((p, q) => (q.lang === orig) - (p.lang === orig)).map((d) => ({
+          lang: d.lang, list: d.single ? null : d.id, episodes: d.episodes.map(({ id: v, n, title, sec, ext }) => ({ id: v, n, title, sec, ext })),
+        })),
+      })),
+    });
+  }
 }
 
-const before = seasons.length;
-seasons.splice(0, Infinity, ...dropSameTitle(seasons));
-report.merged = before - seasons.length;
-const kept = new Set(seasons.map((s) => s.id));
-report.unmatched = report.unmatched.filter((x) => kept.has(x.id));
-report.guessed = report.guessed.filter((x) => kept.has(x.id));
-
-// 保護：片庫一次縮水超過三成視為異常，不覆蓋
-const prev = existsSync(`${OUT}/index.json`) ? JSON.parse(readFileSync(`${OUT}/index.json`, 'utf8')).seasons.length : 0;
-if (prev && seasons.length < prev * 0.7) throw new Error(`片庫從 ${prev} 季縮到 ${seasons.length} 季，疑似異常，中止且不更新`);
+// 保護：片庫一次縮水超過三成視為異常，不覆蓋（舊格式沒有 works，視為第一次）
+const prev = existsSync(`${OUT}/index.json`) ? JSON.parse(readFileSync(`${OUT}/index.json`, 'utf8')).works?.length ?? 0 : 0;
+if (prev && works.length < prev * 0.7) throw new Error(`片庫從 ${prev} 部縮到 ${works.length} 部，疑似異常，中止且不更新`);
 
 rmSync(`${OUT}/seasons`, { recursive: true, force: true });
-mkdirSync(`${OUT}/seasons`, { recursive: true });
-for (const s of seasons) {
-  writeFileSync(`${OUT}/seasons/${s.id}.json`, JSON.stringify({ id: s.id, desc: s._desc, episodes: s._eps.map(({ id, n, title, sec, ext }) => ({ id, n, title, sec, ext })) }));
-  delete s._desc; delete s._eps;
-}
+rmSync(`${OUT}/works`, { recursive: true, force: true });
+mkdirSync(`${OUT}/works`, { recursive: true });
+for (const d of workFiles) writeFileSync(`${OUT}/works/${d.id}.json`, JSON.stringify(d));
 const generatedAt = new Date().toISOString();
-writeFileSync(`${OUT}/index.json`, JSON.stringify({ generatedAt, channels: cfg.channels.map(({ key, name }) => ({ key, name })), seasons }));
-writeFileSync(`${OUT}/report.json`, JSON.stringify({ generatedAt, units, ...report, counts: { seasons: seasons.length, unmatched: report.unmatched.length, guessed: report.guessed.length } }, null, 1));
-console.log(`完成：${seasons.length} 季，未對應 ${report.unmatched.length}，需覆核 ${report.guessed.length}，用 ${units} 單位，${Math.round((Date.now() - t0) / 1000)} 秒`);
+writeFileSync(`${OUT}/index.json`, JSON.stringify({ generatedAt, channels: cfg.channels.map(({ key, name }) => ({ key, name })), works }));
+writeFileSync(`${OUT}/report.json`, JSON.stringify({ generatedAt, units, ...report, counts: { works: works.length, seasons: items.length, unmatched: report.unmatched.length, guessed: report.guessed.length } }, null, 1));
+console.log(`完成：${works.length} 部作品（${items.length} 個清單），未對應 ${report.unmatched.length}，需覆核 ${report.guessed.length}，用 ${units} 單位，${Math.round((Date.now() - t0) / 1000)} 秒`);

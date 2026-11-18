@@ -24,6 +24,7 @@ npm test
 ## 調整
 - `public/data/report.json`：每次同步的報告。`unmatched` 是沒對上 AniList 的季，`guessed` 是用猜的對應（建議抽查）。
 - `manual-matches.json`：`{"播放清單ID": AniList編號}` 手動指定；填 `null` 表示刻意不對應。手動優先於自動。
+- `manual-works.json`：`{"播放清單ID": "作品名"}` 手動指定清單屬於哪部作品（自動是看標題去掉季數與配音後是否相同）。
 - `sources.json`：頻道、長度門檻、標題排除與會員標記的正規表示式。
 - `sync/taxonomy.mjs`：題材與標籤的中文名稱。
 
