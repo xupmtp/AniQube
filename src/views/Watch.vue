@@ -121,7 +121,7 @@ function onShareToggle(e: Event) {
 function shareEp(e: Event) {
   if (!ep.value) return;
   const t = withTime.value && shareAt.value > 0 ? `?t=${shareAt.value}` : '';
-  const name = season.value?.kind === 'special' ? season.value.name : `${title.value} 第 ${ep.value.n} 集`;
+  const name = season.value?.bundle ? `${title.value} 合集 ${season.value.name}` : season.value?.kind === 'special' ? season.value.name : `${title.value} 第 ${ep.value.n} 集`;
   void share(`${name}｜動漫立方`, pageUrl(`/watch/${enc(id.value)}/${ep.value.id}${t}`));
   (e.target as HTMLElement).closest('details')?.removeAttribute('open');
 }
@@ -172,7 +172,7 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
       <div class="bar">
         <div>
           <RouterLink :to="`/title/${enc(id)}`" class="back">‹ {{ title }}</RouterLink>
-          <h1>{{ season.kind === 'special' ? season.name : `第 ${ep?.n} 集` }} <small>{{ ep ? fmtDur(ep.sec) : '' }}</small></h1>
+          <h1>{{ season.bundle ? `合集 ${season.name}` : season.kind === 'special' ? season.name : `第 ${ep?.n} 集` }} <small>{{ ep ? fmtDur(ep.sec) : '' }}</small></h1>
           <p class="ept">{{ season.kind === 'special' ? '' : `${season.name} · ` }}{{ ep && epTitle(ep.title) }}</p>
         </div>
         <div class="actions">

@@ -92,7 +92,8 @@ export const mostlyMembers = (w: Work): boolean => (w.memberEps ?? 0) > w.eps;
 
 export function metaLine(s: Work): string {
   const parts = [s.year ? String(s.year) : '', FORMATS[s.format ?? ''] ?? '', s.status ? STATUS[s.status] ?? '' : '',
-    s.seasons > 1 ? `${s.seasons} 季 · ${s.eps} 集可看`
+    !s.eps && s.bundles ? `${s.bundles} 支合集`
+      : s.seasons > 1 ? `${s.seasons} 季 · ${s.eps} 集可看`
       // 合輯（S1-S5）常對到第一季，集數會超過總集數，這時只顯示可看集數
       : s.totalEps && s.eps <= s.totalEps ? `${s.eps} / ${s.totalEps} 集` : `${s.eps} 集可看`];
   return parts.filter(Boolean).join(' · ');

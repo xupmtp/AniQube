@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { zstdDecompressSync } from 'node:zlib';
-import { buildIndex, buildSeasons, buildStandalones, cleanDesc, cleanTitle, dubLabel, groupWorks, match, toTrad } from './lib.mjs';
+import { buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
 import { BLOCKED_GENRES, GENRES, TAGS } from './taxonomy.mjs';
 
 const KEY = process.env.YOUTUBE_API_KEY;
@@ -114,7 +114,9 @@ function buildChannel(ch, { members: m, uploadIds, lists, videos: v }) {
   const seasons = buildSeasons(lists, videos, cfg, ch, members);
   const used = new Set(seasons.flatMap((s) => s.episodes.map((e) => e.id)));
   const uploads = uploadIds.map((id) => videos.get(id)).filter(Boolean);
-  return [...seasons, ...buildStandalones(uploads, used, cfg, ch, members)].map((s) => ({ ...s, channel: ch }));
+  const singles = buildStandalones(uploads, used, cfg, ch, members);
+  for (const s of singles) used.add(s.episodes[0].id);
+  return [...seasons, ...singles, ...buildBundles([...videos.values()], used, cfg, ch, members)].map((s) => ({ ...s, channel: ch }));
 }
 
 async function loadDataset() {
@@ -179,7 +181,7 @@ const raw = channels.flatMap((ch) => buildChannel(ch, fetched[ch.key]));
 for (const s of raw) {
   const k = s.playlistId;
   if (k in manual) s.link = manual[k] == null ? null : { anilistId: manual[k], how: 'manual' };
-  else s.link = match(s.rawTitle, index);
+  else s.link = match(s.bundle ? `《${s.bundle.name}》` : s.rawTitle, index);
 }
 const meta = await anilist([...new Set(raw.map((s) => s.link?.anilistId).filter(Boolean))]);
 
@@ -194,13 +196,14 @@ const items = [];
 raw.forEach((s, order) => {
   const a = s.link ? meta.get(s.link.anilistId) : null;
   if (a?.genres.some((g) => BLOCKED_GENRES.includes(g))) { report.dropped.push({ id: s.playlistId, title: s.rawTitle, why: 'adult' }); return; }
-  const name = cleanTitle(s.rawTitle), lang = dubLabel(s.rawTitle) ?? ORIGINAL[s.channel.origin];
+  const name = s.bundle ? s.bundle.name : cleanTitle(s.rawTitle), lang = dubLabel(s.rawTitle) ?? ORIGINAL[s.channel.origin];
   items.push({
     id: s.playlistId, name: s.channel.origin === 'CN' ? toTrad(name) : name, rawTitle: s.rawTitle, single: !!s.single, order,
-    channel: s.channel, lang, original: lang === ORIGINAL[s.channel.origin], members: s.members ?? 0, aid: s.link?.anilistId ?? null,
+    channel: s.channel, lang, original: lang === ORIGINAL[s.channel.origin], members: s.members ?? 0, aid: s.bundle ? null : s.link?.anilistId ?? null, bundle: s.bundle, // 合集的對應只拿來補題材封面，不參與作品合併
     when: airTime(a, s.link?.entry),
     episodes: s.episodes, a, entry: s.link?.entry, link: s.link, desc: s.desc ?? '', epDesc: videoDesc.get(s.episodes[0]?.id) ?? '',
   });
+  if (s.bundle) return; // 合集不列進覆核清單
   if (!s.link) report.unmatched.push({ id: s.playlistId, title: s.rawTitle, eps: s.episodes.length });
   else if (['first', 'season', 'split', 'noseason'].includes(s.link.how)) report.guessed.push({ id: s.playlistId, title: s.rawTitle, anilistId: s.link.anilistId, how: s.link.how });
 });
@@ -227,11 +230,18 @@ function sortDubs(dubs) {
   return [...dubs].sort((p, q) => key(q)[0] - key(p)[0] || key(q)[1] - key(p)[1] || chRank(p) - chRank(q) || q.original - p.original);
 }
 
+// 合集在作品頁的名稱：「第 1–45 集」「第 3 季 第 1–17 集」「第 2 季全集」「全集」
+const bundleLabel = ({ a, b, season }) => (a != null ? `${season ? `第 ${season} 季 ` : ''}第 ${a}–${b} 集` : season ? `第 ${season} 季全集` : '全集');
+
 const works = [], workFiles = [];
 report.fuzzy = [];
 {
   for (const w0 of groupWorks(items, manualWorks, related, apart, report.fuzzy)) {
-    const w = { ...w0, seasons: w0.seasons.map((x) => ({ ...x, dubs: sortDubs(x.dubs) })) };
+    // 合集依季、集數由小到大排在最後
+    const kept = pickBundles(w0.seasons), at = ({ season, a: n }) => (season ?? 0) * 1e5 + (n ?? 0);
+    const ordered = [...kept.filter((x) => !x.bundle), ...kept.filter((x) => x.bundle).sort((p, q) => at(p.bundle) - at(q.bundle))];
+    const w = { ...w0, seasons: ordered.map((x) => ({ ...x, dubs: sortDubs(x.dubs) })) };
+    if (!w.seasons.length) continue;
     // 作品歸在 sources.json 最前面的那個頻道（作品 ID 用它算，加新頻道時舊作品的 ID 不變）
     const ch = w.seasons.flatMap((x) => x.dubs).map((d) => d.channel).sort((p, q) => chRank({ channel: p }) - chRank({ channel: q }))[0];
     const pick = (season) => season.dubs[0];
@@ -248,7 +258,7 @@ report.fuzzy = [];
       status: a?.status ?? e?.status ?? null,
       format: main.length ? (a?.format ?? e?.type ?? 'TV') : (a?.format ?? 'SINGLE'),
       score: a?.averageScore ?? null, popularity: Math.max(0, ...all.map((d) => d.a?.popularity ?? 0)), trending: Math.max(0, ...all.map((d) => d.a?.trending ?? 0)),
-      seasons: main.length, eps: w.seasons.reduce((n, x) => n + pick(x).episodes.length, 0),
+      seasons: main.length, eps: w.seasons.filter((x) => !x.bundle).reduce((n, x) => n + pick(x).episodes.length, 0), bundles: w.seasons.filter((x) => x.bundle).length,
       // 會員限定集數：各季取會員集最多的那個清單（同一季的配音版、片源通常重複），卡片上顯示鎖頭
       memberEps: w.seasons.reduce((n, x) => n + Math.max(0, ...x.dubs.map((d) => d.members ?? 0)), 0),
       totalEps: main.length === 1 ? (a?.episodes ?? e?.episodes ?? null) : null,
@@ -257,13 +267,18 @@ report.fuzzy = [];
       anilistId: latest.link?.anilistId ?? null, how: latest.link?.how ?? null,
     });
     // 簡介：原聲季的頻道播放清單說明（清掉宣傳），沒有就退回 AniList 英文（docs/features.md）
-    const zd = [...main.map(pick), ...all].find((d) => cleanDesc(d.desc)), zh = zd && cleanDesc(zd.desc);
+    // 播放清單說明清不出中文時，改用第 1 集的影片說明（Ani-One 清單幾乎不寫說明）；說明裡要提到作品名才用，
+    // 騰訊有些影片放的是別部作品的說明
+    const zd = [...main.map(pick), ...all].find((d) => cleanDesc(d.desc));
+    const ed = !zd && [...main.map(pick), ...all].find((d) => norm(d.epDesc).includes(norm(w.base)) && cleanDesc(d.epDesc));
+    const zh = zd ? cleanDesc(zd.desc) : ed ? cleanDesc(ed.epDesc) : '';
+    const zc = zd || ed;
     const en = all.map((d) => plain(d.a?.description)).find(Boolean) ?? '';
-    const desc = zh ? (zd.channel.origin === 'CN' ? toTrad(zh) : zh) : en.slice(0, 300);
+    const desc = zh ? (zc.channel.origin === 'CN' ? toTrad(zh) : zh) : en.slice(0, 300);
     workFiles.push({
       id, desc, descLang: zh ? 'zh' : 'en', members: main.map(pick).find((d) => d.members > 0)?.id ?? null,
       seasons: w.seasons.map((x) => ({
-        name: x.name, kind: x.kind,
+        name: x.bundle ? bundleLabel(x.bundle) : x.name, kind: x.kind, ...(x.bundle && { bundle: true }),
         dubs: x.dubs.map((d) => ({
           lang: d.lang, ch: d.channel.key, list: d.single ? null : d.id, episodes: d.episodes.map(({ id: v, n, title, sec, ext }) => ({ id: v, n, title, sec, ext })),
         })),
@@ -273,15 +288,13 @@ report.fuzzy = [];
 }
 
 // 保護：片庫一次縮水超過三成視為異常，不覆蓋（舊格式沒有 works，視為第一次）
-// 簡介統計；Ani-One 播放清單幾乎沒寫說明，先抽樣第 1 集影片說明，看過品質再決定要不要用
+// 簡介統計：還是英文簡介的作品列出來，方便之後補
 report.desc = {};
 for (const ch of cfg.channels) {
   const mine = workFiles.filter((d) => works.find((w) => w.id === d.id)?.channel === ch.key);
   report.desc[ch.key] = { zh: mine.filter((d) => d.descLang === 'zh').length, en: mine.filter((d) => d.descLang === 'en').length };
 }
-report.epDescSamples = workFiles.filter((d) => d.descLang === 'en' && works.find((w) => w.id === d.id)?.channel === 'anione')
-  .map((d) => ({ title: works.find((w) => w.id === d.id).title, desc: cleanDesc(items.find((it) => it.id === d.seasons.find((x) => x.kind !== 'special')?.dubs[0]?.list)?.epDesc) }))
-  .filter((x) => x.desc).slice(0, 20);
+report.descEn = workFiles.filter((d) => d.descLang === 'en').map((d) => works.find((w) => w.id === d.id).title);
 
 const prev = existsSync(`${OUT}/index.json`) ? JSON.parse(readFileSync(`${OUT}/index.json`, 'utf8')).works?.length ?? 0 : 0;
 if (prev && works.length < prev * 0.7) throw new Error(`片庫從 ${prev} 部縮到 ${works.length} 部，疑似異常，中止且不更新`);

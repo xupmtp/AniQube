@@ -200,6 +200,92 @@ export function buildStandalones(uploads, usedIds, cfg, ch, members) {
   return out;
 }
 
+// ── 合集：一支影片看好幾集（「EP1-EP20合集」「第1~12話 合集」「全集馬拉松」），docs/adr/0006 ──
+// 一般的集限 3 小時（超過的多半是直播存檔、連播）；合集另外放一區，只收能補上缺集的（pickBundles）
+const BUNDLE = /合集|全集|一口[氣气]|馬拉松|[連连]播|無拼接|无拼接|Full Version|EP\s*\d+\s*[-~～]+\s*(?:EP)?\s*\d+|第\s*\d+\s*[~～-]\s*\d+\s*[話话集]|S\d+\s*[-~～]\s*S?\d+/i;
+
+/** 合集涵蓋的集數範圍與季：{ a, b, season }；a、b 解析不到為 null，跨好幾季（S1-S3）的 season 為 null */
+export function bundleRange(title) {
+  const m = /EP\s*0*(\d+)\s*[-~～]+\s*(?:EP)?\s*0*(\d+)/i.exec(title) || /第\s*0*(\d+)\s*[~～-]\s*0*(\d+)\s*[話话集]/.exec(title);
+  const multi = /S\d+\s*[-~～]\s*S?\d+|第\s*\d+\s*[+＋]\s*\d+\s*季/i.test(title);
+  return { a: m ? Number(m[1]) : null, b: m ? Number(m[2]) : null, season: multi ? null : parseHints(title).season };
+}
+
+/**
+ * 合集影片的作品名候選，依可能性排序（groupWorks 依序找片庫裡的作品，對不到才用第一個自成一部）。
+ * 作品名通常在《》裡（「ENG SUB《仙逆》EP101-115合集」）；《》裡是篇名時前面的優先（「膽大黨《高速婆婆篇》」），
+ * 是宣傳字時用後面的（「《期間限定-全集馬拉松》青春豬頭少年…」）；《》在「｜」後面時，「｜」前若只是宣傳字
+ * （「4K無刪減 | S1-S5一口氣 |《狐妖小紅娘》」）或篇名，就用《》裡的
+ */
+export function bundleNames(title) {
+  const tidy = (x) => x.replace(/第\s*\d+\s*[-~～]\s*\d+\s*[話话集].*$/, '').replace(/\bEP\s*\d+.*$/i, '').replace(/[(（][^)）]*[)）]/g, '')
+    .replace(/\d+\s*分鐘/g, '').replace(/^[^！!]*(週年|周年|限定|首播)[^！!]*[！!]\s*/, '')
+    .replace(/ENG SUB|MULTI ?SUB|NEW ANIME|合集版|合集|全集馬拉松|全集|無刪減|无删减|4K|高清|完整版|完整|最全|最新|Full|正[體体]字幕|年番\d*|新番|丨|一口[氣气]\S*|(?<![A-Za-z])S\d+(\s*[-~～]\s*S?\d+)?(?!\d)/gi, '')
+    .trim().replace(/^[-\s　|，,]+|[-\s　|，,]+$/g, '');
+  const t = title.replace(/[\p{Extended_Pictographic}\u{FE0F}\u200D]/gu, '').replace(/【[^】]*】/g, '');
+  const head = t.replace(/[｜|].*$/, ''), m = /^(.*?)《(.+?)》(.*)$/.exec(head), late = /《(.+?)》/.exec(t);
+  let names;
+  if (m) {
+    const [, before, inside, after] = m;
+    names = /篇$/.test(inside) ? [before, inside] : /馬拉松|全集|合集|期間限定/.test(inside) ? [after] : [inside, before];
+  } else names = late && (/篇$/.test(tidy(head)) || [...tidy(head)].length < 2) ? [late[1], head] : [head, late?.[1] ?? ''];
+  return [...new Set(names.map(tidy))].filter((x) => [...x].length >= 2);
+}
+export const bundleName = (title) => bundleNames(title)[0] ?? '';
+
+/** 不在任何季、也不是單篇的長片裡，標題像合集的 */
+export function buildBundles(videos, usedIds, cfg, ch, members) {
+  const deny = re(cfg.bundleDeny), marks = earlyMarks(cfg, ch), early = marks ? re(marks) : null;
+  const out = [];
+  for (const v of videos) {
+    if (usedIds.has(v.id) || v.live !== 'none' || members.has(v.id) || v.twBlocked) continue;
+    if (v.sec < cfg.bundleMinSec || v.sec > cfg.bundleMaxSec || !BUNDLE.test(v.title) || deny.test(v.title) || early?.test(v.title)) continue;
+    const names = bundleNames(v.title);
+    if (!names.length) continue;
+    out.push({
+      playlistId: `b-${v.id}`, rawTitle: v.title, single: true, bundle: { name: names[0], names, ...bundleRange(v.title) },
+      episodes: [{ id: v.id, n: 1, title: v.title, sec: v.sec, views: v.views, at: v.at, ext: !v.embeddable || v.age }],
+    });
+  }
+  return out;
+}
+
+/**
+ * 合集只留能補上缺集的：範圍裡有作品沒有的集數（會員限定、沒單獨上傳），或整季不在片庫／含會員限定集；
+ * 範圍重疊的，每次挑補得最多的那支，直到再也補不到新的集。seasons 是一部作品的季（含 bundle 單篇）
+ */
+export function pickBundles(seasons) {
+  const main = seasons.filter((s) => s.kind !== 'special');
+  const bySeason = new Map();
+  for (const s of main) bySeason.set(s.no ?? 1, new Set([...(bySeason.get(s.no ?? 1) ?? []), ...s.dubs.flatMap((d) => d.episodes.map((e) => e.n))]));
+  const all = new Set([...bySeason.values()].flatMap((x) => [...x]));
+  const members = (no) => main.some((s) => (s.no ?? 1) === no && s.dubs.some((d) => d.members > 0));
+  const gapOf = ({ a, b, season }) => {
+    // 整部的全集：作品沒有單集、或有會員限定集時才補得到；有其他合集時不留（見下）
+    if (a == null && season == null) return !main.length || main.some((s) => s.dubs.some((d) => d.members > 0)) ? ['ALL'] : [];
+    if (a == null) return !bySeason.has(season) || members(season) ? [`S${season}`] : [];
+    const have = season ? bySeason.get(season) ?? new Set() : all, out = [];
+    // 合集用全系列的總集數（SPY 第 2 季「第30-35話」）、片庫的季每季從 1 起算：那季沒有會員集、合集又整段在它的最後一集之後，就當作編號不同
+    if (season && have.size && a > Math.max(...have) && !members(season)) return [];
+    for (let n = a; n <= Math.min(b, a + 2000); n++) if (!have.has(n)) out.push(`${season ?? 0}:${n}`);
+    return out;
+  };
+  const cand = seasons.filter((s) => s.bundle).map((s) => ({ s, gap: gapOf(s.bundle) }));
+  const keep = new Set(), covered = new Set();
+  for (;;) {
+    let best = null, gain = 0;
+    for (const c of cand) {
+      const g = keep.has(c.s) ? 0 : c.gap.filter((x) => !covered.has(x)).length;
+      if (g > gain) { best = c; gain = g; }
+    }
+    if (!best) break;
+    keep.add(best.s);
+    best.gap.forEach((x) => covered.add(x));
+  }
+  if ([...keep].some((s) => s.bundle.a != null || s.bundle.season != null)) for (const s of keep) if (s.bundle.a == null && s.bundle.season == null) keep.delete(s);
+  return seasons.filter((s) => !s.bundle || keep.has(s));
+}
+
 // ── 作品：同一片源頻道內，標題去掉季數與配音標記後相同的季合成一部（docs/adr/0003）──
 
 // 季數寫法：第二季、S2、Season 2、2nd Season，以及接在中文後面的羅馬數字（「約會大作戰Ⅴ」「約會大作戰III」）
@@ -275,8 +361,8 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
     return works.get(key);
   };
   const addTo = (w, it, special) => {
-    const gk = (special ? 'sp:' : '') + norm(it.name);
-    const g = w.groups.get(gk) ?? { name: it.name, special, coll: !special && isCollection(it.rawTitle), dubs: new Map(), order: it.order };
+    const gk = it.bundle ? `bd:${it.id}` : (special ? 'sp:' : '') + norm(it.name); // 合集一支一份，不合併
+    const g = w.groups.get(gk) ?? { name: it.name, special, bundle: it.bundle, coll: !special && isCollection(it.rawTitle), dubs: new Map(), order: it.order };
     const dk = `${it.channel?.key ?? ''}|${it.lang}`; // 片源＋配音
     const cur = g.dubs.get(dk);
     if (!cur || it.episodes.length > cur.episodes.length) g.dubs.set(dk, it);
@@ -289,8 +375,10 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
   const keys = [...works.keys()].filter((k) => k.length >= 3).sort((a, b) => b.length - a.length);
   for (const it of items.filter((x) => x.single)) {
     const forced = override[it.id];
-    const k = forced ? norm(forced) : keys.find((key) => norm(it.name).includes(key));
-    addTo(k && works.has(k) ? works.get(k) : workOf(forced ?? it.name), it, true);
+    // 合集的名稱常是簡稱（「聖者無雙」對「聖者無雙～上班族的異世界生存之道」），也接受作品名以它開頭的
+    const find = (name) => keys.find((key) => norm(name).includes(key)) ?? (it.bundle && norm(name).length >= 3 ? keys.find((key) => key.startsWith(norm(name))) : undefined);
+    const k = forced ? norm(forced) : it.bundle ? it.bundle.names.map(find).find(Boolean) : find(it.name);
+    addTo(k && works.has(k) ? works.get(k) : workOf(forced ?? (it.bundle ? workBase(it.name) : it.name)), it, true);
   }
 
   // 2. 合併：共用影片過半、同一個 AniList 編號、AniList 續集／前傳；人工指定的作品不動
@@ -386,7 +474,7 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
       when: Math.min(...[...g.dubs.values()].map((d) => d.when ?? Infinity)),
     })));
     const specials = [...groups.values()].filter((g) => g.special).sort((a, b) => a.order - b.order)
-      .map((g) => ({ name: g.name, kind: 'special', no: Infinity, order: g.order, dubs: [...g.dubs.values()] }));
+      .map((g) => ({ name: g.name, kind: 'special', no: Infinity, order: g.order, dubs: [...g.dubs.values()], ...(g.bundle && { bundle: g.bundle }) }));
     return { key, base, seasons: [...seasons, ...specials] };
   });
 }
@@ -395,11 +483,19 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
 const DESC_JUNK = /https?:\/\/|www\.|@|#|訂閱|订阅|會員|会员|Member|下載|下载|APP|App|更新時間|更新时间|每周|每週|上映|播出|官網|官网|粉絲|粉丝|Facebook|Instagram|IG|Twitter|LINE|原作[／/:：]|導演[／/:：]|监督|監督[／/:：]|製作[／/:：]|動畫製作|声優|聲優[／/:：]|CAST|STAFF|Hottest|Subscribe|热播|熱播/i;
 const DESC_LEAD = /^\s*(☞|▶|►|👉|🔥|🗓|📅|\d{1,2}:\d{2})/u;
 
-/** 清理頻道寫的說明：騰訊有「简介」標題就只取其後；刪短的宣傳行、網址、表情符號；太短（<30 字）回空字串 */
+/** 清理頻道寫的說明：騰訊有「简介」標題就只取其後，Muse 有【劇情簡介】就只取那一段；
+ *  刪 Ani-One 的「《作品》登陸Ani-One！」開頭、短的宣傳行、網址、表情符號；太短（<30 字）回空字串 */
 export function cleanDesc(raw) {
   let lines = String(raw ?? '').split(/\r?\n/);
   const at = lines.findIndex((l) => /^\s*[简簡]介\s*[:：]?\s*$/.test(l));
   if (at >= 0) lines = lines.slice(at + 1);
+  const story = lines.findIndex((l) => /【\s*(劇情|故事|作品)簡介\s*】/.test(l));
+  if (story >= 0) {
+    lines = lines.slice(story + 1);
+    const end = lines.findIndex((l) => /^\s*【/.test(l));
+    if (end > 0) lines = lines.slice(0, end);
+  }
+  lines = lines.map((l) => l.replace(/^[^\n]{0,40}》[^《》\n]{0,10}登陸Ani-One[^！!]*[！!]\s*/, ''));
   // 關鍵字只刪短的宣傳行；長段落是劇情簡介（可能剛好提到「LINE WEBTOON」「播出」），只去掉網址
   const kept = lines
     .filter((l) => !DESC_LEAD.test(l) && !(DESC_JUNK.test(l) && [...l].length < 80))

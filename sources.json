@@ -7,6 +7,9 @@
     { "key": "yuewen",  "id": "UCM5qb75ErC1JMmdgWjN8HJA", "name": "閱文動畫官方頻道",       "label": "閱文動畫", "origin": "CN", "minSec": 300, "memberMarkers": "" }
   ],
   "maxSec": 10800,
+  "bundleMinSec": 1800,
+  "bundleMaxSec": 86400,
+  "bundleDeny": "預告|预告|宣傳|宣传|花絮|精華|精华|集錦|集锦|高光|Highlights?|Trailer|Teaser|\\bPV\\b|\\bCM\\b|#shorts|直播|小劇場|小剧场|OPED|音樂|音乐|漫談|漫谈|夜放送|開箱|回顧|解說|解说|盤點|盘点|Gossip|Reaction|全集中|嗚咪|主持人|展覽|台北站|名場面|名场面|混剪|鬥技|斗技",
   "standaloneMinSec": 1200,
   "standaloneAllow": "劇場版|剧场版|電影|电影|OVA|OAD|特別篇|特别篇|總集篇|总集篇|Special Edition|映畫",
   "standaloneDeny": "Gossip|漫漫聊|夜放送|開箱|猜謎|回顧|特典|假面騎士|戰隊|橡果兄弟",

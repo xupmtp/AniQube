@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -284,4 +284,40 @@ test('季數寫法：2nd Season、中文後的羅馬數字；「全集」是合�
 test('cleanTitle：作品名寫在「｜」後面的單篇', () => {
   assert.equal(cleanTitle('🪐总集篇EP01-04【无拼接一口气】|《斗破苍穹》Battle Through the Heavens | 阅文动漫'), '斗破苍穹 总集篇EP01-04【无拼接一口气】');
   assert.equal(cleanTitle('劇場版 某作品｜Muse木棉花 動畫 線上看'), '劇場版 某作品');            // 後面不是《》就不動
+});
+
+test('cleanDesc：Muse 只取【劇情簡介】段落、去掉 Ani-One 的登陸開頭', () => {
+  const muse = '木棉花2026一月新番 《某作》\n【巴哈姆特動畫瘋｜中華電信 MOD】\n【劇情簡介】\n有一天人們知道了邏輯的存在，世界從此改變，少年踏上了守護大家的漫長旅程。\n【關注木棉花的最新消息】\nhttps://x.com';
+  assert.equal(cleanDesc(muse), '有一天人們知道了邏輯的存在，世界從此改變，少年踏上了守護大家的漫長旅程。');
+  assert.equal(cleanDesc('《失憶投捕》登陸Ani-One！ 在國中球界馳名的強投・清峰葉流火，與冷靜捕手「智將」・要圭，這對投捕搭檔。'), '在國中球界馳名的強投・清峰葉流火，與冷靜捕手「智將」・要圭，這對投捕搭檔。');
+});
+
+test('合集：作品名、集數範圍；只留能補缺集的', () => {
+  assert.equal(bundleName('ENG SUB《仙逆》Renegade Immortal EP101-115合集 Full Version | 腾讯视频'), '仙逆');
+  assert.equal(bundleName('膽大黨《高速婆婆篇》100分鐘 第01-04話 ｜Muse木棉花'), '膽大黨');
+  assert.equal(bundleName('《期間限定-全集馬拉松》青春豬頭少年不會夢到兔女郎學姊｜Muse木棉花'), '青春豬頭少年不會夢到兔女郎學姊');
+  assert.equal(bundleName('【全集馬拉松】聖者無雙｜Muse木棉花 動畫 線上看'), '聖者無雙');
+  assert.equal(bundleName('開播十週年！冰菓 第01-22話(含OVA)｜Muse木棉花'), '冰菓');
+  assert.deepEqual(bundleRange('ENG SUB《仙逆》EP101-115合集'), { a: 101, b: 115, season: null });
+  assert.deepEqual(bundleRange('🎮全集无删减 | EP01-45一口气Full |《全职高手》S1-S3'), { a: 1, b: 45, season: null });
+  assert.deepEqual(bundleRange('全职高手S3合集EP01-17一次看过瘾！|《全职高手》第三季'), { a: 1, b: 17, season: 3 });
+  // 作品只有第 1 集（其餘會員限定）：EP1-10、EP5-15 都補得到；EP1-5 被 EP1-10 涵蓋 → 不留；整季都有的合集 → 不留
+  const ep = (n) => ({ id: `e${n}`, n });
+  const s1 = { name: 'X', kind: 'season', no: 1, dubs: [{ members: 20, episodes: [ep(1)] }] };
+  const b = (a, z) => ({ name: `b${a}`, kind: 'special', bundle: { a, b: z, season: null }, dubs: [] });
+  assert.deepEqual(pickBundles([s1, b(1, 5), b(1, 10), b(5, 15), b(1, 1)]).map((s) => s.name), ['X', 'b1', 'b5']);
+});
+
+test('bundleName：容易抓錯的標題', () => {
+  assert.equal(bundleName('【全集馬拉松】Love Live! Superstar!!S2｜Muse木棉花'), 'Love Live! Superstar!!');
+  assert.equal(bundleName('【全集馬拉松】打工吧！魔王大人 第01-13話｜Muse木棉花'), '打工吧！魔王大人');
+  assert.equal(bundleName('【全集馬拉松】BanG Dream!｜木棉花2026七月新番《BanG Dream！YUME∞MITA》7/2起'), 'BanG Dream!');
+  assert.equal(bundleName('ENG SUB《缉妖录之启程篇》"Another Journey" | EP01-EP12 合集 | 腾讯视频'), '缉妖录之启程篇');
+  assert.equal(bundleName('【全集馬拉松】開播十週年《Love Live! 一期》 |  Muse木棉花'), 'Love Live! 一期');
+});
+
+test('bundleNames：閱文「宣傳字 |《作品》」格式用《》裡的', () => {
+  assert.deepEqual(bundleNames('🪐4K无删减 | S1-S5一口气 EP01-89 |《狐妖小红娘》Fox Spirit Matchmaker | 阅文动漫'), ['狐妖小红娘']);
+  assert.deepEqual(bundleNames('🪐药族篇完整合集【无拼接一口气】|《斗破苍穹》Battle Through the Heavens | 阅文动漫'), ['斗破苍穹', '药族篇']);
+  assert.deepEqual(bundleNames('膽大黨《高速婆婆篇》100分鐘 第01-04話 ｜Muse木棉花'), ['膽大黨', '高速婆婆篇']);
 });

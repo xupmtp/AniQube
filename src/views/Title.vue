@@ -36,7 +36,8 @@ watch(id, async (v) => {
 const resume = computed(() => (detail.value && progress[id.value] ? locate(detail.value, progress[id.value].ep) : null));
 const indexed = computed(() => detail.value?.seasons.map((x, s) => ({ x, s })) ?? []);
 const main = computed(() => indexed.value.filter(({ x }) => x.kind !== 'special'));
-const specials = computed(() => indexed.value.filter(({ x }) => x.kind === 'special'));
+const specials = computed(() => indexed.value.filter(({ x }) => x.kind === 'special' && !x.bundle));
+const bundles = computed(() => indexed.value.filter(({ x }) => x.bundle));
 const season = computed(() => detail.value?.seasons[sel.value.s]);
 const rows = computed(() => (season.value ? episodeRows(season.value, sel.value.d) : []));
 
@@ -107,6 +108,18 @@ const enc = encodeURIComponent;
               <small><span v-if="isWatched(work.id, r.ep.id)" class="tick" aria-label="看過">✓</span>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · 在 YouTube 觀看</template></small>
             </RouterLink>
             <div v-else class="none"><b>{{ r.n }}</b><span>無此配音</span></div>
+          </li>
+        </ol>
+      </template>
+
+      <template v-if="bundles.length">
+        <h2>合集<small class="h-note">一支影片連看好幾集，補上單集沒有的部分</small></h2>
+        <ol class="eps">
+          <li v-for="b in bundles" :key="b.s">
+            <RouterLink :to="`/watch/${enc(work.id)}/${b.x.dubs[0].episodes[0].id}`" :class="{ seen: isWatched(work.id, b.x.dubs[0].episodes[0].id) }">
+              <b>▶</b><span :title="b.x.dubs[0].episodes[0].title">{{ b.x.name }}</span>
+              <small><span v-if="isWatched(work.id, b.x.dubs[0].episodes[0].id)" class="tick" aria-label="看過">✓</span>{{ fmtDur(b.x.dubs[0].episodes[0].sec) }}<template v-if="sourcesOf(b.x).length > 1 || main.length"> · {{ labels[b.x.dubs[0].ch ?? ''] }}</template><template v-if="b.x.dubs[0].episodes[0].ext"> · 在 YouTube 觀看</template></small>
+            </RouterLink>
           </li>
         </ol>
       </template>
