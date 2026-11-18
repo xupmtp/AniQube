@@ -7,6 +7,7 @@ import { loadYT } from '../player.ts';
 import type { YTPlayer } from '../player.ts';
 import { clearProgress, isWatched, markSeen, markWatched, progress, setProgress, settings } from '../store.ts';
 import { KEY_HELP, isTyping, keyAction } from '../keys.ts';
+import { clock, pageUrl, share } from '../share.ts';
 import type { Detail } from '../types.ts';
 import { epAt, episodeRows, firstSpot, locate, nextSpot, switchDub } from '../work.ts';
 import type { Spot } from '../work.ts';
@@ -61,7 +62,9 @@ async function start() {
   failed.value = false;
   const e = ep.value;
   if (!e || e.ext) { stop(); return; }
-  const at = progress[id.value]?.ep === e.id ? progress[id.value].t : 0;
+  // 分享連結帶的 ?t= 優先（只對網址指定的那一集有效），其次是自己的續播進度
+  const qt = Number(route.query.t);
+  const at = qt > 0 && route.params.ep === e.id ? Math.floor(qt) : progress[id.value]?.ep === e.id ? progress[id.value].t : 0;
   try {
     const YT = await loadYT();
     if (player) { player.loadVideoById({ videoId: e.id, startSeconds: at }); return; }
@@ -96,6 +99,22 @@ function ended() {
     setProgress(id.value, e.id, 0, e.sec);
     router.replace(`/watch/${enc(id.value)}/${e.id}`);
   }, 1000);
+}
+
+// 分享這一集：可選擇從目前秒數開始（像 YouTube），預設不帶時間
+const shareAt = ref(0);
+const withTime = ref(false);
+function onShareToggle(e: Event) {
+  if (!(e.target as HTMLDetailsElement).open) return;
+  try { shareAt.value = Math.floor(player?.getCurrentTime() ?? 0); } catch { shareAt.value = 0; }
+  withTime.value = false;
+}
+function shareEp(e: Event) {
+  if (!ep.value) return;
+  const t = withTime.value && shareAt.value > 0 ? `?t=${shareAt.value}` : '';
+  const name = season.value?.kind === 'special' ? season.value.name : `${title.value} 第 ${ep.value.n} 集`;
+  void share(`${name}｜動漫立方`, pageUrl(`/watch/${enc(id.value)}/${ep.value.id}${t}`));
+  (e.target as HTMLElement).closest('details')?.removeAttribute('open');
 }
 
 // 快捷鍵：焦點在頁面上（不在 YouTube 播放器、也不在輸入框）時才有作用
@@ -148,6 +167,13 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
           <p class="ept">{{ season.kind === 'special' ? '' : `${season.name} · ` }}{{ ep && epTitle(ep.title) }}</p>
         </div>
         <div class="actions">
+          <details class="share-pop" @toggle="onShareToggle">
+            <summary class="btn">分享</summary>
+            <div class="share-box">
+              <label v-if="shareAt > 0"><input v-model="withTime" type="checkbox" /> 從 {{ clock(shareAt) }} 開始</label>
+              <button class="btn primary" @click="shareEp">分享這一集</button>
+            </div>
+          </details>
           <RouterLink v-if="prev" class="btn" :to="linkTo(prev)">上一集</RouterLink>
           <RouterLink v-if="next" class="btn primary" :class="{ pulse: endedHere }" :to="linkTo(next)">下一集</RouterLink>
         </div>

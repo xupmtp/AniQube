@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import { metaLine, posterOf } from '../catalog.ts';
 import { preview, close, keep } from '../preview.ts';
 import { clearProgress, hasNew, inList, progress, toggleList } from '../store.ts';
+import { pageUrl, share } from '../share.ts';
 
 const route = useRoute();
 const w = computed(() => preview.work);
@@ -50,6 +51,7 @@ watch(() => route.fullPath, close);
         <div class="sheet-acts">
           <button @click="toggleList(w.id)"><span class="pv-ico">{{ inList(w.id) ? '✓' : '＋' }}</span>我的片單</button>
           <button v-if="preview.resume" @click="removeResume"><span class="pv-ico">✕</span>移除</button>
+          <button @click="share(`${w.title}｜動漫立方`, pageUrl(`/title/${enc(w.id)}`))"><span class="pv-ico">↗</span>分享</button>
           <RouterLink :to="`/title/${enc(w.id)}`"><span class="pv-ico">ⓘ</span>集數與資訊</RouterLink>
         </div>
       </section>

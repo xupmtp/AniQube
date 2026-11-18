@@ -6,6 +6,7 @@ import { loadCatalog, loadDetail } from '../data.ts';
 import { clearHistory, inList, isWatched, markSeen, progress, toggleList, watched } from '../store.ts';
 import type { Detail, Work } from '../types.ts';
 import { episodeRows, firstSpot, locate } from '../work.ts';
+import { pageUrl, share } from '../share.ts';
 
 const route = useRoute();
 const router = useRouter();
@@ -65,6 +66,7 @@ const enc = encodeURIComponent;
       <div class="actions">
         <RouterLink class="btn primary" :to="`/watch/${enc(work.id)}`">▶ {{ resume ? '繼續觀看' : '播放' }}</RouterLink>
         <button class="btn" @click="toggleList(work.id)">{{ inList(work.id) ? '✓ 已在片單' : '＋ 加入片單' }}</button>
+        <button class="btn" @click="share(`${work.title}｜動漫立方`, pageUrl(`/title/${enc(work.id)}`))">分享</button>
         <button v-if="hasHistory" class="btn ghost" @click="wipe">清除觀看紀錄</button>
       </div>
 
