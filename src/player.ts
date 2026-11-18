@@ -2,6 +2,14 @@
 export interface YTPlayer {
   loadVideoById(o: { videoId: string; startSeconds?: number }): void;
   getCurrentTime(): number;
+  getDuration(): number;
+  getPlayerState(): number; // 1 = 播放中
+  playVideo(): void;
+  pauseVideo(): void;
+  seekTo(seconds: number, allowSeekAhead: boolean): void;
+  isMuted(): boolean;
+  mute(): void;
+  unMute(): void;
   destroy(): void;
 }
 interface YTNamespace { Player: new (el: HTMLElement, opts: unknown) => YTPlayer }

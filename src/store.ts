@@ -23,6 +23,10 @@ watch(watched, () => save('aniqube:watched:works', watched), { deep: true });
 // 觀看紀錄的排序依據：每部作品最後一次播放的時間（ms）
 export const lastWatched = reactive<Record<string, number>>(load('aniqube:last:works', {}));
 watch(lastWatched, () => save('aniqube:last:works', lastWatched), { deep: true });
+// 設定（設定頁）：之後新增的偏好也放這裡
+export interface Settings { autoplay: boolean }
+export const settings = reactive<Settings>({ autoplay: true, ...load<Partial<Settings>>('aniqube:settings', {}) });
+watch(settings, () => save('aniqube:settings', settings), { deep: true });
 
 export const inList = (id: string) => myList.includes(id);
 export function toggleList(id: string) {
@@ -52,11 +56,11 @@ export const historyIds = () => [...new Set([...Object.keys(watched), ...Object.
   .sort((a, b) => b.at - a.at);
 
 // ── 備份與還原：沒有帳號，換裝置靠檔案搬資料 ──
-export interface Backup { app: 'aniqube'; version: 1; exportedAt: string; list: string[]; progress: Record<string, Progress>; watched: Record<string, string[]>; seen: Record<string, string>; last: Record<string, number> }
+export interface Backup { app: 'aniqube'; version: 1; exportedAt: string; list: string[]; progress: Record<string, Progress>; watched: Record<string, string[]>; seen: Record<string, string>; last: Record<string, number>; settings?: Partial<Settings> }
 
 export const exportBackup = (): Backup => ({
   app: 'aniqube', version: 1, exportedAt: new Date().toISOString(),
-  list: [...myList], progress: { ...progress }, watched: { ...watched }, seen: { ...seen }, last: { ...lastWatched },
+  list: [...myList], progress: { ...progress }, watched: { ...watched }, seen: { ...seen }, last: { ...lastWatched }, settings: { ...settings },
 });
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -79,7 +83,9 @@ export function parseBackup(text: string): Backup | null {
   for (const [k, v] of Object.entries(isObj(j.seen) ? j.seen : {})) if (typeof v === 'string') seenIn[k] = v;
   const lastIn: Record<string, number> = {}; // 較早的備份檔沒有這欄
   for (const [k, v] of Object.entries(isObj(j.last) ? j.last : {})) if (typeof v === 'number') lastIn[k] = v;
-  return { app: 'aniqube', version: 1, exportedAt: typeof j.exportedAt === 'string' ? j.exportedAt : '', list: strs(j.list), progress: progressIn, watched: watchedIn, seen: seenIn, last: lastIn };
+  const settingsIn: Partial<Settings> = {};
+  if (isObj(j.settings) && typeof j.settings.autoplay === 'boolean') settingsIn.autoplay = j.settings.autoplay;
+  return { app: 'aniqube', version: 1, exportedAt: typeof j.exportedAt === 'string' ? j.exportedAt : '', list: strs(j.list), progress: progressIn, watched: watchedIn, seen: seenIn, last: lastIn, settings: settingsIn };
 }
 
 /** 合併進這台裝置：片單、看過取聯集；同一部作品的進度留較新的；有新集的基準留較晚的 */
@@ -90,5 +96,6 @@ export function mergeBackup(b: Backup): { list: number; progress: number; watche
   for (const [id, l] of Object.entries(b.watched)) for (const ep of l) if (!isWatched(id, ep)) { markWatched(id, ep); eps++; }
   for (const [id, t] of Object.entries(b.seen)) if (!seen[id] || t > seen[id]) seen[id] = t;
   for (const [id, t] of Object.entries(b.last)) if (!lastWatched[id] || t > lastWatched[id]) lastWatched[id] = t;
+  Object.assign(settings, b.settings ?? {}); // 設定以備份檔為準：還原就是要回到那時的偏好
   return { list, progress: prog, watched: eps };
 }

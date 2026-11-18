@@ -70,6 +70,7 @@ function search() {
       <div v-if="open" class="me-menu" role="menu">
         <button role="menuitem" @click="go('/list')">我的片單</button>
         <button role="menuitem" @click="go('/history')">觀看紀錄</button>
+        <button role="menuitem" @click="go('/settings')">設定</button>
         <hr />
         <p class="me-cap">備份與還原</p>
         <button role="menuitem" @click="download">匯出備份檔</button>

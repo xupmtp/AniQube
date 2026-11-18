@@ -10,6 +10,7 @@ export const router = createRouter({
     { path: '/watch/:id/:ep?', component: () => import('./views/Watch.vue') },
     { path: '/list', component: () => import('./views/MyList.vue') },
     { path: '/history', component: () => import('./views/History.vue') },
+    { path: '/settings', component: () => import('./views/Settings.vue') },
     { path: '/about', component: () => import('./views/About.vue') },
     { path: '/:rest(.*)*', redirect: '/' },
   ],

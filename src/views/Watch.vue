@@ -5,7 +5,8 @@ import { epTitle, fmtDur, ytUrl } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
 import { loadYT } from '../player.ts';
 import type { YTPlayer } from '../player.ts';
-import { clearProgress, isWatched, markSeen, markWatched, progress, setProgress } from '../store.ts';
+import { clearProgress, isWatched, markSeen, markWatched, progress, setProgress, settings } from '../store.ts';
+import { KEY_HELP, isTyping, keyAction } from '../keys.ts';
 import type { Detail } from '../types.ts';
 import { epAt, episodeRows, firstSpot, locate, nextSpot, switchDub } from '../work.ts';
 import type { Spot } from '../work.ts';
@@ -76,14 +77,49 @@ async function start() {
   } catch { failed.value = true; }
 }
 
+// 一集播完：自動播放開著就在資訊列倒數 5 秒（不能疊在 YouTube 播放器上），關著就停住並提示「下一集」
+const countdown = ref<number | null>(null);
+const endedHere = ref(false);
+let tick = 0;
+function cancelCountdown() { clearInterval(tick); countdown.value = null; }
 function ended() {
   // 先取出下一集：網址沒帶集數時位置跟著進度走，setProgress 之後 next 就會變成再下一集
   const n = next.value;
-  if (n) { const e = epAt(detail.value!, n); setProgress(id.value, e.id, 0, e.sec); router.replace(`/watch/${enc(id.value)}/${e.id}`); }
-  else clearProgress(id.value);
+  if (!n) { clearProgress(id.value); return; }
+  const e = epAt(detail.value!, n);
+  if (!settings.autoplay) { endedHere.value = true; return; }
+  cancelCountdown(); // YouTube 偶爾連送兩次「播完」，不然會有兩個計時器、倒數快一倍
+  countdown.value = 5;
+  tick = window.setInterval(() => {
+    if (countdown.value! > 1) { countdown.value!--; return; }
+    cancelCountdown();
+    setProgress(id.value, e.id, 0, e.sec);
+    router.replace(`/watch/${enc(id.value)}/${e.id}`);
+  }, 1000);
 }
 
-watch(() => ep.value?.id, (v) => { if (v) void start(); });
+// 快捷鍵：焦點在頁面上（不在 YouTube 播放器、也不在輸入框）時才有作用
+function onKey(ev: KeyboardEvent) {
+  const a = keyAction(ev);
+  if (!a || isTyping(ev.target)) return;
+  if (a.do === 'next' || a.do === 'prev') {
+    const p = a.do === 'next' ? next.value : prev.value;
+    if (p) router.push(linkTo(p));
+    return;
+  }
+  if (!player) return;
+  ev.preventDefault(); // 空白鍵、方向鍵不要捲動頁面
+  try {
+    if (a.do === 'toggle') { if (player.getPlayerState() === 1) player.pauseVideo(); else player.playVideo(); }
+    else if (a.do === 'seek') player.seekTo(Math.max(0, player.getCurrentTime() + a.by), true);
+    else if (a.do === 'jump') player.seekTo(player.getDuration() * a.frac, true);
+    else if (a.do === 'mute') { if (player.isMuted()) player.unMute(); else player.mute(); }
+    else if (a.do === 'fullscreen') { if (document.fullscreenElement) void document.exitFullscreen(); else void wrap.value?.requestFullscreen(); }
+  } catch { /* 播放器還沒就緒 */ }
+}
+window.addEventListener('keydown', onKey);
+
+watch(() => ep.value?.id, (v) => { cancelCountdown(); endedHere.value = false; if (v) void start(); });
 // 每 5 秒記一次進度；前 3 秒不記，避免剛開始就把上次的位置洗成 0
 const timer = window.setInterval(() => {
   if (!player || !ep.value || ep.value.ext) return;
@@ -93,7 +129,7 @@ const timer = window.setInterval(() => {
     if (t > 30) markWatched(id.value, ep.value.id); // 播超過 30 秒算看過
   } catch { /* 播放器還沒就緒 */ }
 }, 5000);
-onUnmounted(() => { clearInterval(timer); stop(); });
+onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventListener('keydown', onKey); stop(); });
 </script>
 
 <template>
@@ -113,8 +149,19 @@ onUnmounted(() => { clearInterval(timer); stop(); });
         </div>
         <div class="actions">
           <RouterLink v-if="prev" class="btn" :to="linkTo(prev)">上一集</RouterLink>
-          <RouterLink v-if="next" class="btn primary" :to="linkTo(next)">下一集</RouterLink>
+          <RouterLink v-if="next" class="btn primary" :class="{ pulse: endedHere }" :to="linkTo(next)">下一集</RouterLink>
         </div>
+      </div>
+      <div v-if="countdown" class="countdown" role="status">
+        <span><b>{{ countdown }}</b> 秒後播放下一集<template v-if="next"> · 第 {{ epAt(detail, next).n }} 集</template></span>
+        <button class="btn" @click="cancelCountdown">取消</button>
+      </div>
+      <div class="watch-tools">
+        <label class="mini-switch"><input v-model="settings.autoplay" type="checkbox" role="switch" class="switch" />自動播放下一集</label>
+        <details class="keys">
+          <summary>快捷鍵</summary>
+          <dl><template v-for="[k, v] in KEY_HELP" :key="k"><dt>{{ k }}</dt><dd>{{ v }}</dd></template></dl>
+        </details>
       </div>
     </div>
     <div class="side">
