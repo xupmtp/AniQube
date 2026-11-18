@@ -23,13 +23,14 @@ jobs:
         env: { YOUTUBE_API_KEY: '${{ secrets.YOUTUBE_API_KEY }}' }
       - if: github.event_name == 'push'
         run: if [ -s sync/cache/raw.json ]; then npm run rebuild; else echo "沒有快取，沿用已提交的資料"; fi
-      # 資料有變才提交；每天的同步提交也讓排程不會因 repo 60 天無活動被停用
-      - run: |
-          git config user.name "aniqube-bot"; git config user.email "bot@users.noreply.github.com"
-          git add public/data
-          git diff --cached --quiet || { git commit -m "chore: catalog ${{ github.event_name == 'push' && 'rebuild' || 'daily sync' }} $(date -u +%F)" && git push || echo "推送失敗（main 已前進），下次 push 會再重建"; }
+      # 只有每天同步才提交資料（push 重建的結果直接部署，已提交的資料隔天同步會更新）；
+      # 每天提交也讓排程不會因 repo 60 天無活動被停用
       - if: github.event_name != 'push'
         run: |
+          git config user.name "aniqube-bot"; git config user.email "bot@users.noreply.github.com"
+          git add public/data
+          git commit -m "chore: daily catalog sync $(date -u +%F)" || true
+          git push
           cd sync/cache && git init -q -b data-cache && git add raw.json
           git -c user.name=aniqube-bot -c user.email=bot@users.noreply.github.com commit -qm "raw cache $(date -u +%F)"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" data-cache
