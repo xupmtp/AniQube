@@ -2,6 +2,8 @@ name: sync-and-deploy
 on:
   schedule: [{ cron: '0 20 * * *' }]   # 每天 UTC 20:00（台灣早上 04:00）
   workflow_dispatch:
+    inputs:
+      full: { description: '完整同步（平日預設增量，週日自動完整）', type: boolean, default: false }
   push: { branches: [main] }
 permissions: { contents: write, pages: write, id-token: write }
 concurrency: { group: pages, cancel-in-progress: false }
@@ -20,7 +22,7 @@ jobs:
       # 只有排程與手動才同步
       - if: github.event_name != 'push'
         run: npm run sync
-        env: { YOUTUBE_API_KEY: '${{ secrets.YOUTUBE_API_KEY }}' }
+        env: { YOUTUBE_API_KEY: '${{ secrets.YOUTUBE_API_KEY }}', FULL_SYNC: '${{ inputs.full && '1' || '' }}' }
       - if: github.event_name == 'push'
         run: if [ -s sync/cache/raw.json ]; then npm run rebuild; else echo "沒有快取，沿用已提交的資料"; fi
       # 只有每天同步才提交資料（push 重建的結果直接部署，已提交的資料隔天同步會更新）；

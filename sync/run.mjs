@@ -30,13 +30,15 @@ async function yt(path, params) {
     throw new Error(`YouTube ${path} ${r.status}: ${j.error?.message ?? ''}`);
   }
 }
-async function pages(path, params) {
+// stop：拿到一頁後判斷要不要停（增量抓取：新的在前面，翻到已知的就停）
+async function pages(path, params, stop = () => false) {
   const out = [];
   let t;
   do {
     const j = await yt(path, { ...params, maxResults: 50, ...(t && { pageToken: t }) });
     if (!j) return out;
     out.push(...j.items);
+    if (stop(j.items)) break;
     t = j.nextPageToken;
   } while (t);
   return out;
@@ -65,21 +67,47 @@ async function details(ids) {
 }
 
 // 只負責抓（花配額）。結果原樣存進快取，過濾與分季全在 buildChannel，改規則不必重抓。
-async function fetchChannel(ch) {
-  const idPart = ch.id.slice(2);
+// 增量（prev = 上次的快取）：每天只抓變動的部分，上架、下架都要抓得到（docs/adr/0005）——
+//   上傳、會員清單：新的在前面，翻到上次見過的影片就停；清單：摘要每次全抓，影片數或 etag 變了才重抓內容；
+//   影片細節：新影片一定抓，舊影片每天輪流重查七分之一（私人、刪除、禁止嵌入、台灣不能看都在這時發現）。
+//   prev 為 null 時（完整同步：每週日、新頻道、FULL_SYNC=1）全部重抓。
+async function fetchChannel(ch, prev) {
+  const idPart = ch.id.slice(2), u0 = units;
+  const ids = (items) => items.map((i) => i.contentDetails.videoId);
+  const newest = async (playlistId, known) => {
+    const got = ids(await pages('playlistItems', { part: 'contentDetails', playlistId }, (page) => !!known && ids(page).some((id) => known.has(id))));
+    return known ? [...new Set([...got, ...known])] : got;
+  };
   // 會員限定：頻道自己的會員清單（UUMO）。YouTube 影片欄位看不出來，只能這樣扣。沒有會員清單會回 404。
-  const members = (await pages('playlistItems', { part: 'contentDetails', playlistId: `UUMO${idPart}` })).map((i) => i.contentDetails.videoId);
-  const uploadIds = (await pages('playlistItems', { part: 'contentDetails', playlistId: `UU${idPart}` })).map((i) => i.contentDetails.videoId);
+  const members = await newest(`UUMO${idPart}`, prev && new Set(prev.members));
+  const uploadIds = await newest(`UU${idPart}`, prev && new Set(prev.uploadIds));
   // 不套任何過濾規則：抓取量只取決於頻道內容，改規則不影響配額，也都能用快取重跑
+  const old = new Map((prev?.lists ?? []).map((p) => [p.id, p]));
   const lists = (await pages('playlists', { part: 'snippet,contentDetails', channelId: ch.id }))
-    .map((p) => ({ id: p.id, title: p.snippet.title, desc: p.snippet.description ?? '', n: p.contentDetails.itemCount })) // desc：中文簡介的來源（docs/features.md）
+    .map((p) => ({ id: p.id, etag: p.etag, title: p.snippet.title, desc: p.snippet.description ?? '', n: p.contentDetails.itemCount })) // desc：中文簡介的來源（docs/features.md）
     .filter((p) => p.n > 0);
-  for (const p of lists) p.videoIds = (await pages('playlistItems', { part: 'contentDetails', playlistId: p.id })).map((i) => i.contentDetails.videoId);
-  const need = new Set([...uploadIds, ...lists.flatMap((p) => p.videoIds)].filter((id) => !members.includes(id)));
-  const videos = [...(await details([...need])).values()];
-  console.log(`${ch.name}: 上傳 ${uploadIds.length}、會員限定 ${members.length}、清單 ${lists.length}、影片細節 ${videos.length}（已用 ${units} 單位）`);
-  return { members, uploadIds, lists, videos };
+  let changed = 0;
+  for (const p of lists) {
+    const o = old.get(p.id);
+    if (o && o.n === p.n && o.etag === p.etag) { p.videoIds = o.videoIds; continue; }
+    p.videoIds = ids(await pages('playlistItems', { part: 'contentDetails', playlistId: p.id }));
+    changed++;
+  }
+  const memberSet = new Set(members);
+  const need = [...new Set([...uploadIds, ...lists.flatMap((p) => p.videoIds)])].filter((id) => !memberSet.has(id));
+  // gone：上次查不到的影片（刪除、私人；清單裡常留著佔位），跟舊影片一樣輪到那天才重查，不必每天查
+  const known = new Map((prev?.videos ?? []).map((v) => [v.id, v])), wasGone = new Set(prev?.gone ?? []);
+  const today = Math.floor(Date.now() / 864e5) % 7;
+  const fetchIds = new Set(need.filter((id) => (!known.has(id) && !wasGone.has(id)) || rotation(id) === today));
+  const fresh = await details([...fetchIds]);
+  // 這次有查的：查不到就是刪除或設為私人，不留；沒輪到的沿用上次
+  const videos = need.map((id) => (fetchIds.has(id) ? fresh.get(id) : known.get(id))).filter(Boolean);
+  const have = new Set(videos.map((v) => v.id)), gone = need.filter((id) => !have.has(id));
+  console.log(`${ch.name}${prev ? '（增量）' : '（完整）'}: 上傳 ${uploadIds.length}、會員限定 ${members.length}、清單 ${lists.length}（重抓 ${changed}）、影片細節 ${videos.length}（查 ${fetchIds.size}）、${units - u0} 單位`);
+  return { members, uploadIds, lists, videos, gone };
 }
+// 影片輪到哪一天重查（0～6）：用 ID 算，固定且平均分散
+const rotation = (id) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 7;
 
 function buildChannel(ch, { members: m, uploadIds, lists, videos: v }) {
   const members = new Set(m), videos = new Map(v.map((x) => [x.id, x]));
@@ -107,10 +135,15 @@ const ANILIST = `query($ids:[Int],$page:Int){Page(page:$page,perPage:50){media(i
 async function anilist(ids) {
   const out = new Map();
   for (let i = 0; i < ids.length; i += 50) {
-    const r = await fetch('https://graphql.anilist.co', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: ANILIST, variables: { ids: ids.slice(i, i + 50), page: 1 } }),
-    });
+    let r;
+    for (let k = 0; k < 4; k++) { // 429 限流：等一分鐘再試，不要讓整次同步失敗
+      r = await fetch('https://graphql.anilist.co', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: ANILIST, variables: { ids: ids.slice(i, i + 50), page: 1 } }),
+      });
+      if (r.status !== 429) break;
+      await sleep(60000);
+    }
     if (!r.ok) throw new Error(`AniList ${r.status}`);
     for (const m of (await r.json()).data.Page.media) out.set(m.id, m);
     await sleep(800); // 上限每分鐘 90 次
@@ -130,8 +163,11 @@ if (process.env.USE_RAW_CACHE) {
   fetched = JSON.parse(readFileSync(rawCache, 'utf8'));
 }
 else {
+  // 週日（台灣時間）或 FULL_SYNC=1 做完整同步，其餘日子增量；沒有快取的頻道一律完整
+  const prev = existsSync(rawCache) ? JSON.parse(readFileSync(rawCache, 'utf8')) : {};
+  const full = !!process.env.FULL_SYNC || new Date(Date.now() + 8 * 3600e3).getUTCDay() === 0;
   fetched = {};
-  for (const ch of cfg.channels) fetched[ch.key] = await fetchChannel(ch);
+  for (const ch of cfg.channels) fetched[ch.key] = await fetchChannel(ch, full ? null : prev[ch.key] ?? null);
   mkdirSync('sync/cache', { recursive: true });
   writeFileSync(rawCache, JSON.stringify(fetched));
 }
