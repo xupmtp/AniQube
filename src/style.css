@@ -187,6 +187,20 @@ main { min-height: calc(100vh - 120px); }
 .link:hover { text-decoration: underline; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: var(--s6) var(--s4); margin-top: var(--s4); }
 .more { display: flex; margin: var(--s8) auto 0; }
+.page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3); margin-bottom: var(--s4); }
+.page-head h1 { margin: 0; font: 900 var(--fs-h1)/1.2 var(--serif); }
+.page-head h1::before { content: ""; display: inline-block; vertical-align: .18em; width: 14px; height: 14px; margin-right: var(--s3); background: var(--shu); box-shadow: 3px 3px 0 #d23a2259; }
+.page-head select { min-height: 44px; padding: 8px 36px 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--ink-3) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23b0a79b'/%3E%3C/svg%3E") no-repeat right 12px center; -webkit-appearance: none; appearance: none; cursor: pointer; }
+.empty { display: grid; justify-items: center; gap: var(--s4); padding: var(--s16) var(--gutter); color: var(--mute); text-align: center; }
+.history { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.history li { display: grid; grid-template-columns: 160px minmax(0, 1fr) auto; gap: var(--s4); align-items: center; padding: var(--s3) 0; border-bottom: 1px solid var(--line); }
+.h-thumb img { width: 160px; aspect-ratio: 16/9; object-fit: cover; border-radius: 6px; display: block; }
+.h-info { display: grid; gap: 2px; min-width: 0; }
+.h-info strong { font-size: var(--fs-md); }
+.h-info a:hover strong { color: var(--shu-hi); }
+.h-info small { color: var(--mute); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.h-info .h-day { color: var(--dim); }
+.h-acts { display: flex; gap: var(--s2); }
 
 /* ── 作品頁 ── */
 .title-page { position: relative; }
@@ -283,6 +297,9 @@ main { min-height: calc(100vh - 120px); }
   .advanced select { flex: 1 1 140px; min-width: 0; }
   .count { margin-left: 0; width: 100%; }
   .ranked .card { margin-left: 46px; }
+  .history li { grid-template-columns: 112px minmax(0, 1fr); }
+  .h-thumb img { width: 112px; }
+  .h-acts { grid-column: 1 / -1; }
 }
 @media (hover: none) { .card:hover { transform: none; } .card:hover .thumb img { transform: none; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }

@@ -3,13 +3,13 @@ import { ref } from 'vue';
 import type { Work } from '../types.ts';
 import Card from './Card.vue';
 
-defineProps<{ title: string; works: Work[]; more?: string; resume?: boolean; ranked?: boolean; anchor?: string }>();
+defineProps<{ title: string; works: Work[]; more?: string; resume?: boolean; ranked?: boolean }>();
 const el = ref<HTMLElement | null>(null);
 const go = (dir: number) => el.value?.scrollBy({ left: dir * el.value.clientWidth * 0.85, behavior: 'smooth' });
 </script>
 
 <template>
-  <section v-if="works.length" :id="anchor" class="row">
+  <section v-if="works.length" class="row">
     <h2>{{ title }}<RouterLink v-if="more" :to="more">查看全部 ›</RouterLink></h2>
     <div class="wrap">
       <button class="arrow l" aria-label="向左" @click="go(-1)">‹</button>

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clearHistory, clearProgress, exportBackup, hasNew, isWatched, markSeen, markWatched, mergeBackup, myList, parseBackup, progress, seen, setProgress, toggleList } from './store.ts';
+import { clearHistory, clearProgress, exportBackup, hasNew, historyIds, lastWatched, isWatched, markSeen, markWatched, mergeBackup, myList, parseBackup, progress, seen, setProgress, toggleList } from './store.ts';
 
 test('hasNew：只看片單與繼續觀看裡的作品，以上次看到時的更新時間為基準', () => {
   const w = (id: string, updated: string) => ({ id, updated });
@@ -39,4 +39,14 @@ test('備份：匯出再匯入是合併，壞資料略過、非備份檔拒絕',
   assert.ok(myList.includes('y') && isWatched('x', 'e2'));
   myList.splice(0); for (const k of Object.keys(progress)) delete progress[k]; for (const k of Object.keys(seen)) delete seen[k];
   clearHistory('x');
+});
+
+test('觀看紀錄：依最後觀看時間排序，移除繼續觀看仍保留，清除紀錄才消失', () => {
+  markWatched('old', 'e'); lastWatched.old = 1;
+  markWatched('new', 'e');
+  assert.deepEqual(historyIds().map((h) => h.id), ['new', 'old']);
+  clearProgress('new');
+  assert.ok(historyIds().some((h) => h.id === 'new'));
+  clearHistory('new'); clearHistory('old');
+  assert.deepEqual(historyIds(), []);
 });

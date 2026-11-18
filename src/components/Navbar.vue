@@ -22,7 +22,7 @@ onUnmounted(() => {
   window.removeEventListener('scroll', onScroll);
   document.removeEventListener('click', onDoc); document.removeEventListener('keydown', onKey);
 });
-function go(to: string) { open.value = false; router.push({ path: '/', query: { to } }); }
+function go(path: string) { open.value = false; router.push(path); }
 function download() {
   open.value = false;
   const url = URL.createObjectURL(new Blob([JSON.stringify(exportBackup(), null, 1)], { type: 'application/json' }));
@@ -68,8 +68,8 @@ function search() {
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8" /><path d="M5 19.5c1.2-3.4 3.9-5 7-5s5.8 1.6 7 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
       </button>
       <div v-if="open" class="me-menu" role="menu">
-        <button role="menuitem" @click="go('mylist')">我的片單</button>
-        <button role="menuitem" @click="go('resume')">繼續觀看</button>
+        <button role="menuitem" @click="go('/list')">我的片單</button>
+        <button role="menuitem" @click="go('/history')">觀看紀錄</button>
         <hr />
         <p class="me-cap">備份與還原</p>
         <button role="menuitem" @click="download">匯出備份檔</button>

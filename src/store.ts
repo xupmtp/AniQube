@@ -20,6 +20,9 @@ watch(seen, () => save('aniqube:seen:works', seen), { deep: true });
 // 看過的集：每部作品記下播放超過 30 秒的影片 ID（見 CONTEXT.md「看過」），不設上限
 export const watched = reactive<Record<string, string[]>>(load('aniqube:watched:works', {}));
 watch(watched, () => save('aniqube:watched:works', watched), { deep: true });
+// 觀看紀錄的排序依據：每部作品最後一次播放的時間（ms）
+export const lastWatched = reactive<Record<string, number>>(load('aniqube:last:works', {}));
+watch(lastWatched, () => save('aniqube:last:works', lastWatched), { deep: true });
 
 export const inList = (id: string) => myList.includes(id);
 export function toggleList(id: string) {
@@ -27,7 +30,7 @@ export function toggleList(id: string) {
   if (i >= 0) myList.splice(i, 1);
   else { myList.unshift(id); seen[id] ??= new Date().toISOString(); }
 }
-export const setProgress = (id: string, ep: string, t: number, d?: number) => { progress[id] = { ep, t: Math.floor(t), at: Date.now(), d }; };
+export const setProgress = (id: string, ep: string, t: number, d?: number) => { progress[id] = { ep, t: Math.floor(t), at: Date.now(), d }; lastWatched[id] = Date.now(); };
 export const clearProgress = (id: string) => { delete progress[id]; };
 
 /** 打開作品頁或播放頁：基準更新到作品目前的最後更新時間，有新集的標記就消失 */
@@ -39,17 +42,21 @@ export function hasNew(w: { id: string; updated: string }): boolean {
   return !!base && w.updated > base;
 }
 
-export function markWatched(id: string, ep: string) { const l = (watched[id] ??= []); if (!l.includes(ep)) l.push(ep); }
+export function markWatched(id: string, ep: string) { const l = (watched[id] ??= []); if (!l.includes(ep)) l.push(ep); lastWatched[id] = Date.now(); }
 export const isWatched = (id: string, ep: string) => !!watched[id]?.includes(ep);
 /** 清除觀看紀錄：進度與看過的集一起清掉（只想從繼續觀看拿掉用 clearProgress） */
-export function clearHistory(id: string) { delete progress[id]; delete watched[id]; }
+export function clearHistory(id: string) { delete progress[id]; delete watched[id]; delete lastWatched[id]; }
+/** 觀看紀錄：有看過的集或有進度的作品，依最後觀看時間新到舊；沒有時間的（舊紀錄）排最後 */
+export const historyIds = () => [...new Set([...Object.keys(watched), ...Object.keys(progress)])]
+  .map((id) => ({ id, at: lastWatched[id] ?? progress[id]?.at ?? 0 }))
+  .sort((a, b) => b.at - a.at);
 
 // ── 備份與還原：沒有帳號，換裝置靠檔案搬資料 ──
-export interface Backup { app: 'aniqube'; version: 1; exportedAt: string; list: string[]; progress: Record<string, Progress>; watched: Record<string, string[]>; seen: Record<string, string> }
+export interface Backup { app: 'aniqube'; version: 1; exportedAt: string; list: string[]; progress: Record<string, Progress>; watched: Record<string, string[]>; seen: Record<string, string>; last: Record<string, number> }
 
 export const exportBackup = (): Backup => ({
   app: 'aniqube', version: 1, exportedAt: new Date().toISOString(),
-  list: [...myList], progress: { ...progress }, watched: { ...watched }, seen: { ...seen },
+  list: [...myList], progress: { ...progress }, watched: { ...watched }, seen: { ...seen }, last: { ...lastWatched },
 });
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -70,7 +77,9 @@ export function parseBackup(text: string): Backup | null {
   for (const [k, v] of Object.entries(isObj(j.watched) ? j.watched : {})) { const l = strs(v); if (l.length) watchedIn[k] = l; }
   const seenIn: Record<string, string> = {};
   for (const [k, v] of Object.entries(isObj(j.seen) ? j.seen : {})) if (typeof v === 'string') seenIn[k] = v;
-  return { app: 'aniqube', version: 1, exportedAt: typeof j.exportedAt === 'string' ? j.exportedAt : '', list: strs(j.list), progress: progressIn, watched: watchedIn, seen: seenIn };
+  const lastIn: Record<string, number> = {}; // 較早的備份檔沒有這欄
+  for (const [k, v] of Object.entries(isObj(j.last) ? j.last : {})) if (typeof v === 'number') lastIn[k] = v;
+  return { app: 'aniqube', version: 1, exportedAt: typeof j.exportedAt === 'string' ? j.exportedAt : '', list: strs(j.list), progress: progressIn, watched: watchedIn, seen: seenIn, last: lastIn };
 }
 
 /** 合併進這台裝置：片單、看過取聯集；同一部作品的進度留較新的；有新集的基準留較晚的 */
@@ -80,5 +89,6 @@ export function mergeBackup(b: Backup): { list: number; progress: number; watche
   for (const [id, p] of Object.entries(b.progress)) if (!progress[id] || p.at > progress[id].at) { progress[id] = p; prog++; }
   for (const [id, l] of Object.entries(b.watched)) for (const ep of l) if (!isWatched(id, ep)) { markWatched(id, ep); eps++; }
   for (const [id, t] of Object.entries(b.seen)) if (!seen[id] || t > seen[id]) seen[id] = t;
+  for (const [id, t] of Object.entries(b.last)) if (!lastWatched[id] || t > lastWatched[id]) lastWatched[id] = t;
   return { list, progress: prog, watched: eps };
 }

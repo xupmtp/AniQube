@@ -8,6 +8,8 @@ export const router = createRouter({
     { path: '/browse', component: () => import('./views/Browse.vue') },
     { path: '/title/:id', component: () => import('./views/Title.vue') },
     { path: '/watch/:id/:ep?', component: () => import('./views/Watch.vue') },
+    { path: '/list', component: () => import('./views/MyList.vue') },
+    { path: '/history', component: () => import('./views/History.vue') },
     { path: '/about', component: () => import('./views/About.vue') },
     { path: '/:rest(.*)*', redirect: '/' },
   ],
