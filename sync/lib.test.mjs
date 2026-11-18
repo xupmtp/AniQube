@@ -234,4 +234,6 @@ test('cleanDesc：騰訊只取「简介」之後，刪宣傳行與表情符號�
   const muse = '《某作》2026.11.06上映確定\n\n少年終將長大，思春期奇幻故事堂堂步入完結，所有謎團即將揭曉。\n原作／某人、導演／某人';
   assert.equal(cleanDesc(muse), '少年終將長大，思春期奇幻故事堂堂步入完結，所有謎團即將揭曉。');
   assert.equal(cleanDesc('《幼女戰記》\n《幼女戰記 2》'), '');
+  const long = '由韓國漫畫家孫齊皓擔任原作、李光洙作畫，於 LINE WEBTOON 上連載的漫畫作品《大貴族》，故事描述吸血鬼貴族中的貴族「萊」，在沉睡了 820 年之後再度甦醒。';
+  assert.equal(cleanDesc(long), long);                                            // 長段落提到 LINE 不該被整段刪掉
 });

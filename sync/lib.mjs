@@ -346,14 +346,15 @@ export function groupWorks(items, override = {}, related = {}) {
 const DESC_JUNK = /https?:\/\/|www\.|@|#|訂閱|订阅|會員|会员|Member|下載|下载|APP|App|更新時間|更新时间|每周|每週|上映|播出|官網|官网|粉絲|粉丝|Facebook|Instagram|IG|Twitter|LINE|原作[／/:：]|導演[／/:：]|监督|監督[／/:：]|製作[／/:：]|動畫製作|声優|聲優[／/:：]|CAST|STAFF|Hottest|Subscribe|热播|熱播/i;
 const DESC_LEAD = /^\s*(☞|▶|►|👉|🔥|🗓|📅|\d{1,2}:\d{2})/u;
 
-/** 清理頻道寫的說明：騰訊有「简介」標題就只取其後；刪宣傳行、表情符號；太短（<30 字）回空字串 */
+/** 清理頻道寫的說明：騰訊有「简介」標題就只取其後；刪短的宣傳行、網址、表情符號；太短（<30 字）回空字串 */
 export function cleanDesc(raw) {
   let lines = String(raw ?? '').split(/\r?\n/);
   const at = lines.findIndex((l) => /^\s*[简簡]介\s*[:：]?\s*$/.test(l));
   if (at >= 0) lines = lines.slice(at + 1);
+  // 關鍵字只刪短的宣傳行；長段落是劇情簡介（可能剛好提到「LINE WEBTOON」「播出」），只去掉網址
   const kept = lines
-    .filter((l) => !DESC_LEAD.test(l) && !DESC_JUNK.test(l))
-    .map((l) => l.replace(/[\p{Extended_Pictographic}\u{FE0F}\u200D]/gu, '').trim());
+    .filter((l) => !DESC_LEAD.test(l) && !(DESC_JUNK.test(l) && [...l].length < 80))
+    .map((l) => l.replace(/https?:\/\/\S+/g, '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u200D]/gu, '').trim());
   const text = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   return [...text].length >= 30 ? text : '';
 }
