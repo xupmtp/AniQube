@@ -1,0 +1,24 @@
+{
+  "name": "aniqube",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node sync/run.mjs",
+    "rebuild": "USE_RAW_CACHE=1 node sync/run.mjs",
+    "test": "node --test \"sync/*.test.mjs\" && node --experimental-strip-types --no-warnings --test \"src/*.test.ts\"",
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.5.0",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.0",
+    "opencc-js": "^1.0.5",
+    "typescript": "~5.6.0",
+    "vite": "^6.0.0",
+    "vue-tsc": "^2.2.0"
+  }
+}

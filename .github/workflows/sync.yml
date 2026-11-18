@@ -1,0 +1,37 @@
+name: sync-and-deploy
+on:
+  schedule: [{ cron: '0 20 * * *' }]   # 每天 UTC 20:00（台灣早上 04:00）
+  workflow_dispatch:
+  push: { branches: [main] }
+permissions: { contents: write, pages: write, id-token: write }
+concurrency: { group: pages, cancel-in-progress: false }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm test
+      # 只有排程與手動才同步；一般 push 直接用已提交的資料
+      - if: github.event_name != 'push'
+        run: npm run sync
+        env: { YOUTUBE_API_KEY: '${{ secrets.YOUTUBE_API_KEY }}' }
+      # 每天提交一次，順便讓排程不會因 repo 60 天無活動被停用
+      - if: github.event_name != 'push'
+        run: |
+          git config user.name "aniqube-bot"; git config user.email "bot@users.noreply.github.com"
+          git add public/data
+          git commit -m "chore: daily catalog sync $(date -u +%F)" || true
+          git push
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: dist }
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: '${{ steps.d.outputs.page_url }}' }
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AniQube 資料流程</title>
+<style>
+  :root{--bg:#fafaf7;--fg:#1c1c1a;--mut:#6b6b66;--card:#fff;--line:#d9d9d2;--net:#b3261e;--netbg:#fdecea;--loc:#0b6b3a;--locbg:#e6f4ec;--cache:#8a5a00;--cachebg:#fff4d6;--out:#1d4ed8;--outbg:#e8efff}
+  @media(prefers-color-scheme:dark){:root{--bg:#141413;--fg:#ecece6;--mut:#9a9a92;--card:#1d1d1b;--line:#3a3a36;--net:#ff8a80;--netbg:#3a1d1a;--loc:#6fd19b;--locbg:#16301f;--cache:#f0c060;--cachebg:#33280e;--out:#8fb0ff;--outbg:#1a2640}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 -apple-system,"PingFang TC","Noto Sans TC",sans-serif}
+  main{max-width:880px;margin:0 auto;padding:32px 16px 64px}
+  h1{font-size:24px;margin:0 0 4px}h2{font-size:18px;margin:40px 0 12px}
+  p{margin:6px 0}.mut{color:var(--mut)}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px;font-size:13px}
+  .tag{padding:2px 10px;border-radius:99px;border:1px solid}
+  .t-net{color:var(--net);background:var(--netbg);border-color:var(--net)}
+  .t-loc{color:var(--loc);background:var(--locbg);border-color:var(--loc)}
+  .t-cache{color:var(--cache);background:var(--cachebg);border-color:var(--cache)}
+  .t-out{color:var(--out);background:var(--outbg);border-color:var(--out)}
+  .flow{display:flex;flex-direction:column;align-items:stretch}
+  .box{border:1.5px solid;border-radius:10px;padding:12px 14px;background:var(--card)}
+  .box h3{margin:0 0 2px;font-size:15px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .box .f{font-size:13px;color:var(--mut)}
+  .box.net{border-color:var(--net);background:var(--netbg)}
+  .box.loc{border-color:var(--loc);background:var(--locbg)}
+  .box.cache{border-color:var(--cache);background:var(--cachebg);border-style:dashed}
+  .box.out{border-color:var(--out);background:var(--outbg)}
+  .arrow{text-align:center;color:var(--mut);line-height:1.2;padding:4px 0;font-size:13px}
+  .arrow b{display:block;font-size:18px}
+  .rerun{margin-top:10px;padding:8px 12px;border-left:3px solid var(--cache);background:var(--cachebg);font-size:13px;border-radius:0 6px 6px 0}
+  table{border-collapse:collapse;width:100%;font-size:14px;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{font-size:13px;color:var(--mut);background:var(--bg)}
+  tr:last-child td{border-bottom:0}
+  code{font:13px ui-monospace,Menlo,monospace;background:var(--bg);border:1px solid var(--line);padding:1px 5px;border-radius:4px}
+  .ok{color:var(--loc);font-weight:600}.bad{color:var(--net);font-weight:600}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:640px){.cols{grid-template-columns:1fr}th:nth-child(3),td:nth-child(3){display:none}}
+  .card{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--card)}
+  .card h3{margin:0 0 6px;font-size:15px}
+</style>
+</head>
+<body>
+<main>
+  <h1>AniQube 資料流程</h1>
+  <p class="mut">一次 <code>npm run sync</code> 從 YouTube 抓到網站 JSON 的全部步驟，以及「改了規則要重跑什麼」。</p>
+  <div class="legend">
+    <span class="tag t-net">打網路，花 YouTube 配額</span>
+    <span class="tag t-loc">純本機運算，免費、秒級</span>
+    <span class="tag t-cache">快取檔（存在 sync/cache/）</span>
+    <span class="tag t-out">輸出，網站讀這些</span>
+  </div>
+
+  <h2>流程</h2>
+  <div class="flow">
+    <div class="box net">
+      <h3><span>① 抓 YouTube（三個頻道）</span><span class="tag t-net">約 2,700 單位</span></h3>
+      <div class="f">run.mjs <code>fetchChannel()</code></div>
+      <p>會員清單（UUMO）→ 上傳清單 → 播放清單 → 每個清單的影片編號 → 影片細節（標題、秒數、可否嵌入、地區限制、觀看數）。</p>
+      <div class="rerun">這是唯一花配額的步驟，每天上限 10,000 單位。抓取不套任何過濾規則，用量只隨頻道內容增減，跟規則無關。</div>
+    </div>
+    <div class="arrow"><b>↓</b>原樣存檔</div>
+    <div class="box cache">
+      <h3><span>② 原始資料快取</span><span class="tag t-cache">raw.json</span></h3>
+      <div class="f">會員編號、上傳編號、播放清單、所有影片細節。一個字都不過濾。</div>
+      <div class="rerun"><code>npm run rebuild</code> 從這裡開始，跳過 ①，不需金鑰、不花配額。</div>
+    </div>
+    <div class="arrow"><b>↓</b></div>
+    <div class="box loc">
+      <h3><span>③ 過濾與分季</span><span class="tag t-loc">本機</span></h3>
+      <div class="f">run.mjs <code>buildChannel()</code> → lib.mjs <code>classifyVideo / buildSeasons / dropCovered / buildStandalones</code></div>
+      <p>濾掉預告、直播、會員限定、台灣封鎖、長度不符；一個播放清單成為一季；丟掉被別季涵蓋的重複清單；只收劇場版／特別篇為單篇。</p>
+      <div class="rerun">規則在 <code>sources.json</code>：<code>titleDeny</code>、<code>memberMarkers</code>、<code>minSec</code>、<code>standaloneAllow</code>⋯</div>
+    </div>
+    <div class="arrow"><b>↓</b></div>
+    <div class="box loc">
+      <h3><span>④ 對應到 AniList 編號</span><span class="tag t-loc">本機</span></h3>
+      <div class="f">lib.mjs <code>match / splitName</code> + <code>manual-matches.json</code> + anime-offline-database（aod.json，24 小時快取）</div>
+      <p>清理標題 → 查名稱索引 → 同名多筆時用季數、年份挑一筆。人工對應表優先。對不上的歸入 <code>unmatched</code>，用猜的歸入 <code>guessed</code>。</p>
+    </div>
+    <div class="arrow"><b>↓</b></div>
+    <div class="box net">
+      <h3><span>⑤ 向 AniList 取作品資料</span><span class="tag t-net">不花 YouTube 配額</span></h3>
+      <div class="f">run.mjs <code>anilist()</code>，每 50 部一次，約 15 次請求</div>
+      <p>題材、標籤、評分、人氣、簡介、封面、橫幅。成人類（Hentai）在這裡被丟掉。</p>
+    </div>
+    <div class="arrow"><b>↓</b></div>
+    <div class="box loc">
+      <h3><span>⑥ 組成資料並檢查</span><span class="tag t-loc">本機</span></h3>
+      <div class="f">題材／標籤中文名來自 <code>taxonomy.mjs</code>；片庫縮水超過 30% 就中止、不覆蓋</div>
+    </div>
+    <div class="arrow"><b>↓</b></div>
+    <div class="box out">
+      <h3><span>⑦ 輸出</span><span class="tag t-out">public/data/</span></h3>
+      <div class="f"><code>index.json</code>（所有季的卡片資料）、<code>seasons/&lt;id&gt;.json</code>（每季的集數與簡介）、<code>report.json</code>（未對應、猜的）→ 瀏覽器讀取，搜尋篩選全在本機</div>
+    </div>
+  </div>
+
+  <h2>為什麼之前每次調整規則都要重跑</h2>
+  <div class="cols">
+    <div class="card">
+      <h3 class="bad">之前</h3>
+      <p>抓取和過濾黏在同一個函式裡，抓完直接過濾，<b>原始資料沒有存</b>。所以不管改的是過濾、對應還是題材名稱，都只能從 ① 重來，每次約 2,700 單位。一天跑 3 次就接近 10,000 的上限。</p>
+    </div>
+    <div class="card">
+      <h3 class="ok">現在</h3>
+      <p>抓取（①）不做任何過濾，全部存成 <code>raw.json</code>；所有規則都在 ③ 之後才套用。改任何規則都只要 <code>npm run rebuild</code>，0 單位、約 1 秒。完整抓取只在每天排程時跑一次。<b>第一次要先完整跑一次</b>，才會產生這份快取。</p>
+    </div>
+  </div>
+
+  <h2>改了什麼，要重跑到哪一步</h2>
+  <table>
+    <tr><th>你改的東西</th><th>要重跑</th><th>指令</th></tr>
+    <tr><td>過濾規則（收緊或放寬）：<code>titleDeny</code>、<code>memberMarkers</code>、長度門檻、<code>standaloneAllow</code>、重複季邏輯</td><td class="ok">③ 起（0 單位）</td><td><code>npm run rebuild</code></td></tr>
+    <tr><td>對應：<code>manual-matches.json</code>、<code>match()</code> 邏輯</td><td class="ok">④ 起（0 單位）</td><td><code>npm run rebuild</code></td></tr>
+    <tr><td>題材／標籤中文名：<code>taxonomy.mjs</code></td><td class="ok">⑤ 起（0 單位）</td><td><code>npm run rebuild</code></td></tr>
+    <tr><td>前端畫面：<code>src/</code></td><td class="ok">不用 sync</td><td><code>npm run dev</code></td></tr>
+    <tr><td>新增頻道、想看頻道新上架的集</td><td class="bad">① 起（完整）</td><td><code>npm run sync</code>（每天 GitHub Actions 也會跑）</td></tr>
+  </table>
+  <p class="mut" style="margin-top:12px">規則收緊或放寬都一樣用 <code>npm run rebuild</code>。只有片源本身變了（新頻道、新上架）才需要完整抓取。</p>
+</main>
+</body>
+</html>
