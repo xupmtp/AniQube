@@ -249,6 +249,8 @@ report.fuzzy = [];
       format: main.length ? (a?.format ?? e?.type ?? 'TV') : (a?.format ?? 'SINGLE'),
       score: a?.averageScore ?? null, popularity: Math.max(0, ...all.map((d) => d.a?.popularity ?? 0)), trending: Math.max(0, ...all.map((d) => d.a?.trending ?? 0)),
       seasons: main.length, eps: w.seasons.reduce((n, x) => n + pick(x).episodes.length, 0),
+      // 會員限定集數：各季取會員集最多的那個清單（同一季的配音版、片源通常重複），卡片上顯示鎖頭
+      memberEps: w.seasons.reduce((n, x) => n + Math.max(0, ...x.dubs.map((d) => d.members ?? 0)), 0),
       totalEps: main.length === 1 ? (a?.episodes ?? e?.episodes ?? null) : null,
       views: allEps.reduce((n, x) => n + x.views, 0), updated: allEps.reduce((m, x) => (x.at > m ? x.at : m), ''),
       thumb: latest.episodes[0].id, cover: a?.coverImage?.large ?? null, banner: a?.bannerImage ?? null,

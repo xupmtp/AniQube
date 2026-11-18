@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { metaLine, posterOf } from '../catalog.ts';
+import { membersNote, metaLine, posterOf } from '../catalog.ts';
 import { preview, close, keep } from '../preview.ts';
 import { clearProgress, hasNew, inList, progress, toggleList } from '../store.ts';
 import { pageUrl, share } from '../share.ts';
@@ -26,9 +26,10 @@ const pct = computed(() => {
 
 function removeResume() { if (w.value) clearProgress(w.value.id); close(); }
 const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+// 捲動就收起預覽卡：capture 才收得到橫列自己的水平捲動（不會冒泡到 window）
 const onScroll = () => { if (!preview.sheet) close(); };
-onMounted(() => { addEventListener('keydown', onKey); addEventListener('scroll', onScroll, { passive: true }); });
-onUnmounted(() => { removeEventListener('keydown', onKey); removeEventListener('scroll', onScroll); });
+onMounted(() => { addEventListener('keydown', onKey); addEventListener('scroll', onScroll, { passive: true, capture: true }); });
+onUnmounted(() => { removeEventListener('keydown', onKey); removeEventListener('scroll', onScroll, { capture: true }); });
 watch(() => route.fullPath, close);
 </script>
 
@@ -44,6 +45,7 @@ watch(() => route.fullPath, close);
             <h3>{{ w.title }}</h3>
             <p class="meta">{{ metaLine(w) }}<template v-if="w.score"> · ★ {{ (w.score / 10).toFixed(1) }}</template></p>
             <p class="pv-g">{{ [...w.genres, ...w.tags].slice(0, 3).join(' · ') }}</p>
+            <p v-if="w.memberEps" class="pv-lock"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2" /></svg>{{ membersNote(w) }}</p>
           </div>
         </div>
         <div v-if="pct" class="pv-bar"><i :style="{ width: `${pct}%` }"></i></div>
@@ -83,6 +85,7 @@ watch(() => route.fullPath, close);
         <strong class="pv-title">{{ w.title }}</strong>
         <p class="pv-meta"><span v-if="w.score" class="pv-score">★ {{ (w.score / 10).toFixed(1) }}</span>{{ metaLine(w) }}</p>
         <p class="pv-g">{{ [...w.genres, ...w.tags].slice(0, 3).join(' · ') }}</p>
+        <p v-if="w.memberEps" class="pv-lock"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2" /></svg>{{ membersNote(w) }}</p>
       </div>
     </article>
   </template>

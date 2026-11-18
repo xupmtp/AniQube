@@ -2,6 +2,12 @@
 import Navbar from './components/Navbar.vue';
 import Preview from './components/Preview.vue';
 import { toast } from './share.ts';
+
+// 彈出的小視窗（<details class="pop">：分享、快捷鍵）：點外面或按 Esc 就關閉
+const shut = (keep?: Node) => document.querySelectorAll('details.pop[open]').forEach((d) => { if (!keep || !d.contains(keep)) d.removeAttribute('open'); });
+document.addEventListener('pointerdown', (e) => shut(e.target as Node));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') shut(); });
+addEventListener('blur', () => shut()); // 點進 YouTube 播放器（iframe）收不到 pointerdown，焦點離開頁面時一併關閉
 </script>
 
 <template>

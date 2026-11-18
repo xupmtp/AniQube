@@ -176,7 +176,7 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
           <p class="ept">{{ season.kind === 'special' ? '' : `${season.name} · ` }}{{ ep && epTitle(ep.title) }}</p>
         </div>
         <div class="actions">
-          <details class="share-pop" @toggle="onShareToggle">
+          <details class="share-pop pop" @toggle="onShareToggle">
             <summary class="btn">分享</summary>
             <div class="share-box">
               <label v-if="shareAt > 0"><input v-model="withTime" type="checkbox" /> 從 {{ clock(shareAt) }} 開始</label>
@@ -193,7 +193,7 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
       </div>
       <div class="watch-tools">
         <label class="mini-switch"><input v-model="settings.autoplay" type="checkbox" role="switch" class="switch" />自動播放下一集</label>
-        <details class="keys">
+        <details class="keys pop">
           <summary>快捷鍵</summary>
           <dl><template v-for="[k, v] in KEY_HELP" :key="k"><dt>{{ k }}</dt><dd>{{ v }}</dd></template></dl>
         </details>

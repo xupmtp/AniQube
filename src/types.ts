@@ -6,6 +6,7 @@ export interface Work {
   popularity: number; trending: number; seasons: number; eps: number; totalEps: number | null;
   views: number; updated: string; thumb: string; cover: string | null; banner: string | null;
   anilistId: number | null; how: string | null;
+  memberEps?: number; // 會員限定（不在片庫內）的集數
 }
 // moved：分組規則改變（例如跨頻道合併）後，舊作品 ID → 新作品 ID；舊網址轉址、本機紀錄搬移用
 export interface Catalog { generatedAt: string; channels: { key: string; name: string; label?: string }[]; works: Work[]; moved?: Record<string, string> }

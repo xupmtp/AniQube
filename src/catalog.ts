@@ -85,6 +85,11 @@ export function fmtDur(sec: number): string {
   return m >= 60 ? `${Math.floor(m / 60)} 時 ${m % 60} 分` : `${m} 分`;
 }
 
+/** 會員限定的說明：「84 集中 83 集會員限定」；沒有會員集回空字串 */
+export const membersNote = (w: Work): string => (w.memberEps ? `${w.eps + w.memberEps} 集中 ${w.memberEps} 集會員限定` : '');
+/** 大多數集數是會員限定（鎖頭用金色強調） */
+export const mostlyMembers = (w: Work): boolean => (w.memberEps ?? 0) > w.eps;
+
 export function metaLine(s: Work): string {
   const parts = [s.year ? String(s.year) : '', FORMATS[s.format ?? ''] ?? '', s.status ? STATUS[s.status] ?? '' : '',
     s.seasons > 1 ? `${s.seasons} 季 · ${s.eps} 集可看`
