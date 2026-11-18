@@ -43,3 +43,42 @@ export function markWatched(id: string, ep: string) { const l = (watched[id] ??=
 export const isWatched = (id: string, ep: string) => !!watched[id]?.includes(ep);
 /** 清除觀看紀錄：進度與看過的集一起清掉（只想從繼續觀看拿掉用 clearProgress） */
 export function clearHistory(id: string) { delete progress[id]; delete watched[id]; }
+
+// ── 備份與還原：沒有帳號，換裝置靠檔案搬資料 ──
+export interface Backup { app: 'aniqube'; version: 1; exportedAt: string; list: string[]; progress: Record<string, Progress>; watched: Record<string, string[]>; seen: Record<string, string> }
+
+export const exportBackup = (): Backup => ({
+  app: 'aniqube', version: 1, exportedAt: new Date().toISOString(),
+  list: [...myList], progress: { ...progress }, watched: { ...watched }, seen: { ...seen },
+});
+
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+
+/** 匯入的檔案來自外部：格式不對整份拒絕，個別欄位不對就略過那一筆 */
+export function parseBackup(text: string): Backup | null {
+  let j: unknown;
+  try { j = JSON.parse(text); } catch { return null; }
+  if (!isObj(j) || j.app !== 'aniqube') return null;
+  const progressIn: Record<string, Progress> = {};
+  for (const [k, p] of Object.entries(isObj(j.progress) ? j.progress : {})) {
+    if (isObj(p) && typeof p.ep === 'string' && typeof p.t === 'number' && typeof p.at === 'number') {
+      progressIn[k] = { ep: p.ep, t: p.t, at: p.at, ...(typeof p.d === 'number' && { d: p.d }) };
+    }
+  }
+  const watchedIn: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(isObj(j.watched) ? j.watched : {})) { const l = strs(v); if (l.length) watchedIn[k] = l; }
+  const seenIn: Record<string, string> = {};
+  for (const [k, v] of Object.entries(isObj(j.seen) ? j.seen : {})) if (typeof v === 'string') seenIn[k] = v;
+  return { app: 'aniqube', version: 1, exportedAt: typeof j.exportedAt === 'string' ? j.exportedAt : '', list: strs(j.list), progress: progressIn, watched: watchedIn, seen: seenIn };
+}
+
+/** 合併進這台裝置：片單、看過取聯集；同一部作品的進度留較新的；有新集的基準留較晚的 */
+export function mergeBackup(b: Backup): { list: number; progress: number; watched: number } {
+  let list = 0, prog = 0, eps = 0;
+  for (const id of b.list) if (!myList.includes(id)) { myList.push(id); list++; }
+  for (const [id, p] of Object.entries(b.progress)) if (!progress[id] || p.at > progress[id].at) { progress[id] = p; prog++; }
+  for (const [id, l] of Object.entries(b.watched)) for (const ep of l) if (!isWatched(id, ep)) { markWatched(id, ep); eps++; }
+  for (const [id, t] of Object.entries(b.seen)) if (!seen[id] || t > seen[id]) seen[id] = t;
+  return { list, progress: prog, watched: eps };
+}

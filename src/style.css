@@ -43,6 +43,15 @@ main { min-height: calc(100vh - 120px); }
 .search input { width: 240px; max-width: 40vw; min-height: 40px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: #181513d9; transition: border-color .2s, width .3s var(--ease); }
 .search input:focus { border-color: var(--shu-hi); outline: none; }
 .search input::placeholder { color: var(--dim); }
+.me { position: relative; }
+.me-btn { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--ink-3); color: var(--text); cursor: pointer; transition: border-color .2s; }
+.me-btn svg { width: 20px; height: 20px; }
+.me-btn:hover, .me-btn.on { border-color: var(--shu); }
+.me-menu { position: absolute; right: 0; top: calc(100% + 10px); z-index: 25; width: 210px; padding: var(--s2); border-radius: var(--r); border: 1px solid var(--line); background: var(--ink-2); box-shadow: 0 18px 40px #000c; }
+.me-menu button { display: block; width: 100%; min-height: 44px; padding: 0 var(--s3); border: 0; border-radius: 6px; background: none; text-align: left; cursor: pointer; }
+.me-menu button:hover, .me-menu button:focus-visible { background: #ffffff0f; }
+.me-menu hr { border: 0; border-top: 1px solid var(--line); margin: var(--s2) 0; }
+.me-cap { margin: 0; padding: var(--s1) var(--s3); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; color: var(--dim); }
 
 /* ── 主打 ── */
 .hero { position: relative; min-height: 78vh; background-size: cover; background-position: center 20%; display: flex; align-items: flex-end; }

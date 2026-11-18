@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { emptyFilters, filterWorks, pickHero, sortWorks, topGenres } from '../catalog.ts';
 import { loadCatalog } from '../data.ts';
 import { hasNew, myList, progress } from '../store.ts';
@@ -13,6 +14,13 @@ onMounted(async () => {
   try { cat.value = await loadCatalog(); } catch (e) { err.value = e instanceof Error ? e.message : String(e); }
 });
 
+// 個人選單的「我的片單」「繼續觀看」：首頁捲到那一列
+const route = useRoute();
+watch([() => route.query.to, cat], async ([to]) => {
+  if (!to || !cat.value) return;
+  await nextTick();
+  document.getElementById(String(to))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
 const works = computed(() => cat.value?.works ?? []);
 const byId = computed(() => new Map(works.value.map((s) => [s.id, s])));
 const hero = computed(() => pickHero(works.value));
@@ -43,9 +51,9 @@ const rows = computed(() => {
   <template v-else>
     <Hero v-if="hero" :work="hero" />
     <div class="rows" :class="{ nohero: !hero }">
-      <Row title="繼續觀看" :works="resume" resume />
+      <Row title="繼續觀看" :works="resume" resume anchor="resume" />
       <Row title="片單有更新" :works="fresh" />
-      <Row title="我的片單" :works="mine" />
+      <Row title="我的片單" :works="mine" anchor="mylist" />
       <Row v-for="r in rows" :key="r.title" :title="r.title" :works="r.list" :more="r.more" :ranked="'ranked' in r" />
     </div>
   </template>
