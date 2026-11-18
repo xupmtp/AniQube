@@ -27,7 +27,7 @@ const rows = computed(() => {
   return [
     { title: '最近更新', list: top(all, 'updated'), more: '/browse?sort=updated' },
     { title: '趨勢', list: top(all, 'trending'), more: '/browse?sort=trending' },
-    { title: '人氣', list: top(all, 'popularity'), more: '/browse' },
+    { title: '人氣', list: top(all, 'popularity').slice(0, 10), more: '/browse', ranked: true },
     ...topGenres(all, 6).map((g) => ({ title: g, list: top(by({ genres: [g] }), 'popularity'), more: `/browse?genre=${encodeURIComponent(g)}` })),
     { title: '日本動畫', list: top(by({ origin: 'JP' }), 'popularity'), more: '/browse?origin=JP' },
     { title: '中國動畫', list: top(by({ origin: 'CN' }), 'popularity'), more: '/browse?origin=CN' },
@@ -43,7 +43,7 @@ const rows = computed(() => {
     <div class="rows" :class="{ nohero: !hero }">
       <Row title="繼續觀看" :works="resume" resume />
       <Row title="我的片單" :works="mine" />
-      <Row v-for="r in rows" :key="r.title" :title="r.title" :works="r.list" :more="r.more" />
+      <Row v-for="r in rows" :key="r.title" :title="r.title" :works="r.list" :more="r.more" :ranked="'ranked' in r" />
     </div>
   </template>
 </template>

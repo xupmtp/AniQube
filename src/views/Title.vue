@@ -46,9 +46,14 @@ const enc = encodeURIComponent;
   <article v-else class="title-page">
     <div class="backdrop" :style="{ backgroundImage: `url(${posterOf(work)})` }"></div>
     <div class="body">
-      <h1>{{ work.title }}</h1>
-      <p class="meta">{{ metaLine(work) }}<template v-if="work.score"> · ★ {{ (work.score / 10).toFixed(1) }}</template></p>
-      <p class="chips"><span v-for="g in [...work.genres, ...work.tags]" :key="g">{{ g }}</span></p>
+      <div class="head">
+        <img v-if="work.cover" class="poster" :src="work.cover" :alt="work.title" />
+        <div>
+          <h1>{{ work.title }}</h1>
+          <p class="meta">{{ metaLine(work) }}<template v-if="work.score"> · ★ {{ (work.score / 10).toFixed(1) }}</template></p>
+          <p class="chips"><span v-for="g in [...work.genres, ...work.tags]" :key="g">{{ g }}</span></p>
+        </div>
+      </div>
       <p v-if="detail.desc" class="desc" lang="en">{{ detail.desc }}</p>
       <p v-if="detail.members" class="note">
         其餘集數為頻道會員限定，只能在 YouTube 觀看。
@@ -72,7 +77,7 @@ const enc = encodeURIComponent;
         <ol class="eps">
           <li v-for="r in rows" :key="r.n">
             <RouterLink v-if="r.ep" :to="`/watch/${enc(work.id)}/${r.ep.id}`" :class="{ cur: r.ep.id === progress[work.id]?.ep }">
-              <b>{{ r.n }}</b><span>{{ epTitle(r.ep.title) }}</span>
+              <b>{{ r.n }}</b><span :title="epTitle(r.ep.title)">{{ epTitle(r.ep.title, season.name) }}</span>
               <small>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · 在 YouTube 觀看</template></small>
             </RouterLink>
             <div v-else class="none"><b>{{ r.n }}</b><span>無此配音</span></div>

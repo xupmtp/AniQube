@@ -8,6 +8,7 @@ defineProps<{ work: Work }>();
 <template>
   <section class="hero" :style="{ backgroundImage: `url(${posterOf(work)})` }">
     <div class="shade">
+      <p class="kicker">主打推薦</p>
       <h1>{{ work.title }}</h1>
       <p class="meta">{{ metaLine(work) }}<template v-if="work.score"> · ★ {{ (work.score / 10).toFixed(1) }}</template></p>
       <p class="chips"><span v-for="g in [...work.genres, ...work.tags].slice(0, 5)" :key="g">{{ g }}</span></p>

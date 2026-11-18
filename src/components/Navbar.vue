@@ -20,7 +20,7 @@ function search() {
   <header class="nav" :class="{ solid: solid || route.path !== '/' }">
     <RouterLink to="/" class="logo" aria-label="動漫立方 AniQube 首頁">
       <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
-        <path d="M16 3 28 9.5v13L16 29 4 22.5v-13z" fill="#6c7bff" /><path d="M16 3 28 9.5 16 16 4 9.5z" fill="#a5b0ff" />
+        <path d="M16 3 28 9.5v13L16 29 4 22.5v-13z" style="fill: var(--shu)" /><path d="M16 3 28 9.5 16 16 4 9.5z" style="fill: var(--shu-hi)" />
       </svg>
       <span>動漫立方</span><small>AniQube</small>
     </RouterLink>

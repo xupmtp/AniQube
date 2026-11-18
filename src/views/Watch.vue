@@ -123,7 +123,7 @@ onUnmounted(() => { clearInterval(timer); stop(); });
       <ol class="eps">
         <li v-for="r in rows" :key="r.n">
           <RouterLink v-if="r.ep" :to="`/watch/${enc(id)}/${r.ep.id}`" :class="{ cur: r.ep.id === ep?.id }">
-            <b>{{ r.n }}</b><span>{{ epTitle(r.ep.title) }}</span>
+            <b>{{ r.n }}</b><span :title="epTitle(r.ep.title)">{{ epTitle(r.ep.title, season.name) }}</span>
             <small>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · YouTube</template></small>
           </RouterLink>
           <div v-else class="none"><b>{{ r.n }}</b><span>無此配音</span></div>

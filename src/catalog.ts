@@ -17,9 +17,9 @@ export const ORIGINS: Record<string, string> = { JP: '日本', CN: '中國', KR:
 const SEASON_ORDER: Record<string, number> = { WINTER: 0, SPRING: 1, SUMMER: 2, FALL: 3 };
 
 export interface Filters {
-  q: string; genres: string[]; origin: string; year: string; channel: string; status: string; format: string;
+  q: string; genres: string[]; origin: string; year: string; status: string; format: string;
 }
-export const emptyFilters = (): Filters => ({ q: '', genres: [], origin: '', year: '', channel: '', status: '', format: '' });
+export const emptyFilters = (): Filters => ({ q: '', genres: [], origin: '', year: '', status: '', format: '' });
 
 const norm = (s: string) => s.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 
@@ -30,7 +30,6 @@ export function filterWorks(all: Work[], f: Filters): Work[] {
     if (f.genres.some((g) => !s.facets.includes(g))) return false; // 任一季有這個題材／標籤就算
     if (f.origin && s.origin !== f.origin) return false;
     if (f.year && String(s.year) !== f.year) return false;
-    if (f.channel && s.channel !== f.channel) return false;
     if (f.status && s.status !== f.status) return false;
     if (f.format && s.format !== f.format) return false;
     return true;
@@ -94,8 +93,14 @@ export function metaLine(s: Work): string {
   return parts.filter(Boolean).join(' · ');
 }
 
-/** 集標題去掉字幕標示、頻道標記與「｜」之後的宣傳尾巴 */
-export function epTitle(t: string): string {
-  const s = t.replace(/[(（][^)）]*(字幕|原聲|配音)[^)）]*[)）]/g, '').replace(/【Ani-One[^】]*】/g, '').replace(/\s*[｜|].*$/, '').trim();
+/** 集標題去掉字幕標示、頻道標記與「｜」之後的宣傳尾巴；給了季名就再去掉開頭的配音標記與重複的作品名（集數列表用） */
+export function epTitle(t: string, name?: string): string {
+  let s = t.replace(/[(（][^)）]*(字幕|原聲|配音)[^)）]*[)）]/g, '').replace(/【Ani-One[^】]*】/g, '').replace(/\s*[｜|].*$/, '').trim();
+  if (name) {
+    const head = s.replace(/^【[^】]{1,4}】\s*/, '');
+    for (const p of [`《${name}》`, name]) {
+      if (head.startsWith(p) && head.length > p.length) { s = head.slice(p.length).replace(/^[\s:：\-—]+/, ''); break; }
+    }
+  }
   return s || t;
 }

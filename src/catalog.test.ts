@@ -32,7 +32,6 @@ test('篩選：題材（含標籤）要全部符合，其餘欄位精確比對',
   assert.equal(f({ genres: ['修仙'] }), 'b');
   assert.equal(f({ origin: 'CN' }), 'b');
   assert.equal(f({ year: '2022' }), 'a');
-  assert.equal(f({ channel: 'tencent' }), 'b');
   assert.equal(f({ status: 'RELEASING' }), 'b');
   assert.equal(f({ format: 'MOVIE' }), 'c');
 });
@@ -85,4 +84,11 @@ test('多季作品顯示季數', () => {
 test('題材篩選用所有季的聯集（facets），不只卡片上顯示的', () => {
   const w = s({ id: 'z', genres: ['動作'], facets: ['動作', '校園'] });
   assert.equal(ids(filterWorks([w], { ...emptyFilters(), genres: ['校園'] })), 'z');
+});
+
+test('epTitle 給季名時去掉重複的作品名，只剩集數與副標', () => {
+  assert.equal(epTitle('【日語】獵人HUNTER×HUNTER 第005話【西索x悄悄接近】｜Muse木棉花 動畫 線上看', '獵人HUNTER×HUNTER'), '第005話【西索x悄悄接近】');
+  assert.equal(epTitle('《BLEACH 死神》第356話 (繁中字幕 | 日語原聲)【Ani-One】', 'BLEACH 死神'), '第356話');
+  assert.equal(epTitle('第1集', '別的作品'), '第1集');
+  assert.equal(epTitle('獵人HUNTER×HUNTER', '獵人HUNTER×HUNTER'), '獵人HUNTER×HUNTER');   // 整個標題就是作品名時不清空
 });
