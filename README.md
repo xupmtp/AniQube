@@ -5,6 +5,8 @@
 ## 運作方式
 每天 GitHub Actions 執行 `npm run sync`：用 YouTube Data API 抓三個頻道的播放清單，比對 AniList 的作品資料，產生 `public/data/` 底下的 JSON，提交後建置並部署到 GitHub Pages。瀏覽器只讀這些 JSON，搜尋、篩選、排序都在本機做。
 
+架構、各程式職責、資料格式與同步流程的完整說明見 [docs/architecture.html](docs/architecture.html)。
+
 ## 第一次設定
 1. 建立 GitHub repo（public），推上所有檔案；Settings → Pages → Source 選 GitHub Actions。
 2. Settings → Secrets and variables → Actions 新增 `YOUTUBE_API_KEY`。

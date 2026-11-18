@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AniQube 架構說明</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&display=swap">
+<style>
+  :root {
+    --ink:#0f0d0c; --ink-2:#181513; --ink-3:#221e1b; --line:#332d28;
+    --text:#f3eee7; --mute:#b0a79b; --dim:#8a8278;
+    --shu:#d23a22; --shu-hi:#ff8466; --kin:#e2bd72; --teal:#7cc8b4;
+    --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    --serif:"Noto Serif TC","Songti TC","PMingLiU",serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--ink);color-scheme:dark;scroll-behavior:smooth}
+  body{margin:0;font:15.5px/1.8 var(--sans);color:var(--text);-webkit-font-smoothing:antialiased}
+  a{color:var(--shu-hi)}
+  :focus-visible{outline:2px solid var(--shu-hi);outline-offset:3px;border-radius:4px}
+  .wrap{display:grid;grid-template-columns:240px minmax(0,1fr);gap:48px;max-width:1240px;margin:0 auto;padding:0 max(16px,4vw)}
+  header.cover{max-width:1240px;margin:0 auto;padding:72px max(16px,4vw) 40px}
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:.2em;color:var(--shu-hi)}
+  .kicker::before{content:"";width:10px;height:10px;background:var(--shu);box-shadow:3px 3px 0 #d23a2266}
+  h1{font:900 clamp(34px,4.6vw,64px)/1.12 var(--serif);margin:14px 0 16px}
+  .lede{max-width:62ch;color:var(--mute);font-size:17px;margin:0}
+  .stats{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+  .stat{padding:12px 18px;border:1px solid var(--line);border-radius:10px;background:var(--ink-2)}
+  .stat b{display:block;font:900 26px/1.1 var(--serif);color:var(--text);font-variant-numeric:tabular-nums}
+  .stat span{font-size:12px;color:var(--dim);letter-spacing:.06em}
+  nav.toc{position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);overflow:auto;padding:4px 0 24px;font-size:14px}
+  nav.toc p{margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--dim)}
+  nav.toc a{display:block;padding:5px 0 5px 12px;border-left:2px solid var(--line);color:var(--mute);text-decoration:none}
+  nav.toc a:hover,nav.toc a.on{color:var(--text);border-left-color:var(--shu)}
+  main{min-width:0;padding-bottom:96px}
+  section{scroll-margin-top:24px;padding-top:24px}
+  h2{display:flex;align-items:baseline;gap:14px;font:700 clamp(22px,1.6vw + 14px,30px)/1.3 var(--serif);margin:40px 0 14px;padding-top:24px;border-top:1px solid var(--line)}
+  h2 .no{font:900 15px/1 var(--mono);color:var(--shu-hi)}
+  h3{font:700 18px/1.4 var(--serif);margin:28px 0 8px}
+  p{margin:8px 0}
+  .note{padding:12px 16px;border-left:3px solid var(--kin);background:#e2bd7212;border-radius:0 8px 8px 0;color:var(--mute);margin:16px 0}
+  code{font:13px var(--mono);background:var(--ink-3);border:1px solid var(--line);padding:1px 6px;border-radius:5px;color:#f0e4d4}
+  pre{font:13px/1.65 var(--mono);background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;margin:12px 0}
+  pre code{background:none;border:0;padding:0}
+  .tbl{overflow-x:auto;margin:12px 0}
+  table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{font-size:12px;letter-spacing:.06em;color:var(--dim);font-weight:700;background:var(--ink-2)}
+  td:first-child{white-space:nowrap}
+  .tag{display:inline-block;padding:0 8px;border-radius:999px;font-size:12px;font-weight:700;line-height:1.8}
+  .t-net{background:#d23a2226;color:var(--shu-hi)} .t-loc{background:#7cc8b41f;color:var(--teal)} .t-out{background:#e2bd7222;color:var(--kin)}
+  .diagram{background:var(--ink-2);border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0;overflow-x:auto}
+  .diagram svg{display:block;width:100%;min-width:640px;height:auto}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:12px 0}
+  .steps li{counter-increment:s;position:relative;padding:12px 0 12px 52px;border-bottom:1px solid var(--line)}
+  .steps li::before{content:counter(s,decimal-leading-zero);position:absolute;left:0;top:12px;font:900 20px/1 var(--serif);color:var(--shu-hi)}
+  .steps b{display:block}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:12px 0}
+  .card{border:1px solid var(--line);border-radius:10px;background:var(--ink-2);padding:14px 16px}
+  .card h4{margin:0 0 4px;font-size:15px}
+  .card p{margin:0;color:var(--mute);font-size:14px}
+  footer{color:var(--dim);font-size:13px;border-top:1px solid var(--line);padding:24px 0;margin-top:48px}
+  @media (max-width:900px){.wrap{grid-template-columns:1fr;gap:0}nav.toc{position:static;max-height:none;border-bottom:1px solid var(--line);margin-bottom:8px}}
+  @media print{html,body{background:#fff;color:#000}nav.toc{display:none}.wrap{display:block}code,pre,.card,.diagram,th{background:#f5f5f5;color:#000;border-color:#ccc}a{color:#000}a[href^="http"]::after{content:" (" attr(href) ")";font-size:11px}}
+</style>
+</head>
+<body>
+<header class="cover">
+  <span class="kicker">開發文件</span>
+  <h1>動漫立方 AniQube<br>架構與資料流程</h1>
+  <p class="lede">類 Netflix 的動畫瀏覽網站：影片全部來自 YouTube 官方頻道，只用 YouTube 播放器嵌入播放。純靜態網站，沒有後端、沒有帳號、沒有資料庫；片庫每天由 GitHub Actions 同步成 JSON，部署在 GitHub Pages。</p>
+  <div class="stats">
+    <div class="stat"><b>3</b><span>片源頻道</span></div>
+    <div class="stat"><b>630</b><span>作品（卡片）</span></div>
+    <div class="stat"><b>976</b><span>播放清單／單篇</span></div>
+    <div class="stat"><b>≈3,000</b><span>每日 YouTube 配額單位</span></div>
+    <div class="stat"><b>42</b><span>自動測試</span></div>
+  </div>
+</header>
+
+<div class="wrap">
+<nav class="toc" aria-label="目錄">
+  <p>目錄</p>
+  <a href="#overview">1 概觀與限制</a>
+  <a href="#arch">2 整體架構</a>
+  <a href="#tree">3 目錄結構</a>
+  <a href="#sync">4 同步管線</a>
+  <a href="#grouping">5 作品分組規則</a>
+  <a href="#formats">6 資料格式</a>
+  <a href="#front">7 前端</a>
+  <a href="#local">8 本機資料與備份</a>
+  <a href="#config">9 設定與人工檔案</a>
+  <a href="#deploy">10 部署與排程</a>
+  <a href="#dev">11 開發指令與測試</a>
+  <a href="#more">12 延伸文件</a>
+</nav>
+
+<main>
+<section id="overview">
+  <h2><span class="no">01</span>概觀與限制</h2>
+  <p>網站分成兩半：<b>同步端</b>（<code>sync/</code>，Node.js，每天在 GitHub Actions 跑一次）把 YouTube 頻道整理成片庫 JSON；<b>前端</b>（<code>src/</code>，Vue 3 + Vite + TypeScript）是純靜態單頁應用，只讀這些 JSON，搜尋、篩選、排序都在瀏覽器裡做。</p>
+  <div class="grid2">
+    <div class="card"><h4>沒有後端</h4><p>YouTube 搜尋配額一天只有 100 次，不可能即時查；片庫每天建一次存成靜態檔（ADR 0001）。</p></div>
+    <div class="card"><h4>只能嵌入 YouTube</h4><p>不能修改或遮擋 YouTube 播放器（API 服務條款）。倒數、提示一律放在播放器下方。</p></div>
+    <div class="card"><h4>沒有帳號</h4><p>繼續觀看、片單、看過紀錄、設定都存在瀏覽器 localStorage；換裝置靠備份檔。</p></div>
+    <div class="card"><h4>配額 10,000／日</h4><p>只有「抓 YouTube」這一步花配額。抓到的原始資料存成快取，改任何規則都能 0 配額重跑。</p></div>
+  </div>
+  <p>名詞（作品、季、配音版、合輯、單篇、看過、有新集⋯）的定義以 <a href="../CONTEXT.md">CONTEXT.md</a> 為準。</p>
+</section>
+
+<section id="arch">
+  <h2><span class="no">02</span>整體架構</h2>
+  <p><span class="tag t-net">紅</span> 打網路（花 YouTube 配額的只有最左上那一段）・<span class="tag t-loc">青</span> 本機運算・<span class="tag t-out">金</span> 輸出與部署</p>
+  <div class="diagram" role="img" aria-label="資料從 YouTube Data API、anime-offline-database、AniList 進入同步程式，產生 public/data 的 JSON，經 GitHub Actions 提交並部署到 GitHub Pages；GitHub Pages 把網站送到瀏覽器，瀏覽器把個人資料存在 localStorage，播放時嵌入 YouTube 播放器。">
+    <svg viewBox="0 0 960 430" xmlns="http://www.w3.org/2000/svg" font-family="Noto Sans TC, sans-serif" font-size="13">
+      <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0l10 5-10 5z" fill="#8a8278"/></marker></defs>
+      <g fill="none" stroke="#8a8278" stroke-width="1.4" marker-end="url(#a)">
+        <path d="M190 62h70"/><path d="M190 152h70"/><path d="M190 242h70"/>
+        <path d="M480 152h60"/><path d="M700 152h50"/><path d="M750 178H722V298H480"/><path d="M480 310h270"/><path d="M780 350v42H480"/><path d="M860 350v22"/>
+      </g>
+      <g stroke-width="1.5">
+        <rect x="20" y="30" width="170" height="64" rx="10" fill="#d23a2222" stroke="#d23a22"/>
+        <rect x="20" y="120" width="170" height="64" rx="10" fill="#d23a2222" stroke="#d23a22"/>
+        <rect x="20" y="210" width="170" height="64" rx="10" fill="#d23a2222" stroke="#d23a22"/>
+        <rect x="260" y="30" width="220" height="244" rx="12" fill="#7cc8b41a" stroke="#7cc8b4"/>
+        <rect x="540" y="120" width="160" height="64" rx="10" fill="#e2bd7222" stroke="#e2bd72"/>
+        <rect x="750" y="120" width="160" height="70" rx="10" fill="#e2bd7222" stroke="#e2bd72"/>
+        <rect x="750" y="250" width="180" height="100" rx="12" fill="#7cc8b41a" stroke="#7cc8b4"/>
+        <rect x="260" y="290" width="220" height="40" rx="10" fill="#e2bd7222" stroke="#e2bd72"/>
+        <rect x="260" y="370" width="220" height="44" rx="10" fill="#d23a2222" stroke="#d23a22"/>
+        <rect x="800" y="372" width="140" height="40" rx="10" fill="#7cc8b41a" stroke="#7cc8b4"/>
+      </g>
+      <g fill="#f3eee7" font-weight="700">
+        <text x="105" y="58" text-anchor="middle">YouTube Data API</text>
+        <text x="105" y="148" text-anchor="middle">anime-offline-database</text>
+        <text x="105" y="238" text-anchor="middle">AniList GraphQL</text>
+        <text x="370" y="56" text-anchor="middle">sync/run.mjs ＋ lib.mjs</text>
+        <text x="620" y="148" text-anchor="middle">public/data/*.json</text>
+        <text x="830" y="148" text-anchor="middle">GitHub Actions</text>
+        <text x="840" y="276" text-anchor="middle">瀏覽器（Vue SPA）</text>
+        <text x="370" y="316" text-anchor="middle">GitHub Pages（dist/）</text>
+        <text x="370" y="398" text-anchor="middle">YouTube IFrame 播放器</text>
+        <text x="870" y="397" text-anchor="middle">localStorage</text>
+      </g>
+      <g fill="#b0a79b" font-size="12">
+        <text x="105" y="80" text-anchor="middle">頻道、清單、影片細節</text>
+        <text x="105" y="170" text-anchor="middle">名稱 → AniList 編號</text>
+        <text x="105" y="260" text-anchor="middle">題材、評分、封面、續集關聯</text>
+        <text x="370" y="84" text-anchor="middle">① 抓取 → raw.json 快取</text>
+        <text x="370" y="112" text-anchor="middle">② 過濾、分季、單篇</text>
+        <text x="370" y="140" text-anchor="middle">③ 對應 AniList</text>
+        <text x="370" y="168" text-anchor="middle">④ 合併成作品、配對配音版</text>
+        <text x="370" y="196" text-anchor="middle">⑤ 中文簡介、題材標籤</text>
+        <text x="370" y="224" text-anchor="middle">⑥ 縮水保護 → 輸出 JSON</text>
+        <text x="370" y="252" text-anchor="middle">npm run sync ／ rebuild</text>
+        <text x="620" y="170" text-anchor="middle">index、works/、report</text>
+        <text x="830" y="170" text-anchor="middle">每天 04:00 同步、提交</text>
+        <text x="830" y="184" text-anchor="middle">build → deploy</text>
+        <text x="840" y="298" text-anchor="middle">讀 JSON，搜尋篩選在本機</text>
+        <text x="840" y="318" text-anchor="middle">首頁・瀏覽・作品・播放</text>
+        <text x="840" y="338" text-anchor="middle">片單・紀錄・設定</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<section id="tree">
+  <h2><span class="no">03</span>目錄結構</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>路徑</th><th>內容</th></tr></thead>
+    <tbody>
+      <tr><td><code>sync/run.mjs</code></td><td>同步主程式：抓 YouTube、讀快取、對應 AniList、組作品、輸出 JSON。網路呼叫都在這裡。</td></tr>
+      <tr><td><code>sync/lib.mjs</code></td><td>同步用的純函式（不碰網路，全部有測試）：標題清理、對應、分季、分組、簡介清理。</td></tr>
+      <tr><td><code>sync/taxonomy.mjs</code></td><td>AniList 題材與標籤 → 繁中名稱對照，以及要丟掉的成人類題材。</td></tr>
+      <tr><td><code>sync/mock-fetch.mjs</code></td><td>端對端測試用的假 YouTube／GitHub／AniList。</td></tr>
+      <tr><td><code>sync/cache/</code></td><td>不進 git：<code>aod.json</code>（離線資料集，24 小時）、<code>raw.json</code>（抓下來的 YouTube 原始資料）。</td></tr>
+      <tr><td><code>public/data/</code></td><td>同步產出、提交進 git：<code>index.json</code>、<code>works/&lt;id&gt;.json</code>、<code>report.json</code>。</td></tr>
+      <tr><td><code>src/views/</code></td><td>頁面：首頁、瀏覽、作品、播放、我的片單、觀看紀錄、設定、關於。</td></tr>
+      <tr><td><code>src/components/</code></td><td>導覽列（含個人選單）、主打、橫列、卡片、預覽卡／底部面板。</td></tr>
+      <tr><td><code>src/*.ts</code></td><td>前端邏輯模組（見第 7 節），每個有測試的模組旁邊放 <code>*.test.ts</code>。</td></tr>
+      <tr><td><code>sources.json</code></td><td>片源頻道與過濾規則。</td></tr>
+      <tr><td><code>manual-matches.json</code></td><td>人工指定「清單 → AniList 編號」。</td></tr>
+      <tr><td><code>manual-works.json</code></td><td>人工指定「清單 → 作品名」，也用來拆開合錯的作品。</td></tr>
+      <tr><td><code>.github/workflows/sync.yml</code></td><td>每日同步＋建置＋部署。</td></tr>
+      <tr><td><code>docs/</code></td><td>本文件、ADR、功能清單、研究報告、資料流程圖。</td></tr>
+      <tr><td><code>validate.mjs</code></td><td>專案初期的驗證腳本（找頻道、測會員偵測），日常不用。</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="sync">
+  <h2><span class="no">04</span>同步管線（<code>npm run sync</code>）</h2>
+  <p>一次同步依序做下列事。只有第 1 步花 YouTube 配額；設 <code>USE_RAW_CACHE=1</code>（<code>npm run rebuild</code>）會跳過第 1 步、改讀 <code>sync/cache/raw.json</code>，改任何規則都用這個，0 配額、約 25 秒。</p>
+  <ol class="steps">
+    <li><b>抓 YouTube（<code>fetchChannel</code>）<span class="tag t-net">≈3,000 單位</span></b>每個頻道抓：會員清單（<code>UUMO</code> 開頭的非公開清單，用來扣掉會員限定影片）、上傳清單、所有播放清單與其影片 ID、全部影片細節（標題、長度、上架時間、可否嵌入、年齡與地區限制、觀看數、說明）。這一步<b>不套任何過濾規則</b>，用量只隨頻道內容變；結果原樣寫進 <code>raw.json</code>。</li>
+    <li><b>過濾與分季（<code>buildChannel</code> → <code>buildSeasons</code>、<code>buildStandalones</code>）</b><code>classifyVideo</code> 判斷每支影片可不可播：直播、會員限定、台灣封鎖、長度不符、標題命中搶先看或排除詞的都剔除；不能嵌入或年齡限制的保留，標成站外集。一個播放清單成為一季，集數依標題（EP12、第12話、「第07-11話」取第一個數字）排序，合併版若每集都另有單獨上傳就拿掉。不屬於任何季、標題像劇場版／OVA／特別篇的長片成為單篇。</li>
+    <li><b>對應 AniList（<code>match</code>）</b>人工對應表優先；否則用 <code>cleanTitle</code>／<code>candidates</code> 清出候選名，在離線資料集（<code>buildIndex</code>）找同名條目，多筆時依標題的季數、年份、劇場版字樣挑一筆；中英黏在一起的名稱（<code>splitName</code>）也拆開試。結果標記 how：manual／single／season／year／first／split，後四種會列進報告的 <code>guessed</code> 供抽查。</li>
+    <li><b>取作品資料（<code>anilist</code>）</b>對上的編號每 50 筆向 AniList 查一次：題材、標籤、評分、人氣、狀態、首播、簡介、封面、橫幅，以及續集／前傳關聯（給第 5 步合併用）。成人類題材直接丟棄。</li>
+    <li><b>合併成作品（<code>groupWorks</code>）</b>見第 5 節。</li>
+    <li><b>組輸出</b>每部作品：卡片資料取最新一季、年份取首季、人氣熱度取各季最大、篩選用所有季題材標籤的聯集（<code>facets</code>）；簡介優先用頻道播放清單的中文說明（<code>cleanDesc</code> 清掉宣傳、騰訊轉繁體），沒有就退回 AniList 英文（<code>descLang</code>）。</li>
+    <li><b>保護與寫檔</b>作品數比上次少超過三成就中止、不覆蓋（防止 API 異常把片庫清空）；否則重寫 <code>public/data/</code>。</li>
+  </ol>
+  <p>每一步的「改了什麼規則要重跑到哪一步」另見 <a href="dataflow.html">dataflow.html</a>。</p>
+</section>
+
+<section id="grouping">
+  <h2><span class="no">05</span>作品分組規則（<code>groupWorks</code>，ADR 0003）</h2>
+  <p>一張卡片＝一部<b>作品</b>，只在<b>同一片源頻道內</b>合併。</p>
+  <ol class="steps">
+    <li><b>標題</b>去掉季數、範圍（S1-S3）、配音標記後名稱相同的季歸同一部；季名相同、配音不同的是同一季的<b>配音版</b>；同季同配音的重複上傳留集數多的。單篇標題含某作品名（取最長、至少 3 字）就歸入該作品。</li>
+    <li><b>三個合併訊號</b>（union-find）：共用 YouTube 影片超過較小那部的一半；對到同一個 AniList 編號；在 AniList 上互為續集／前傳。寫在 <code>manual-works.json</code> 的作品不參與自動合併。</li>
+    <li><b>合輯與配音版配對</b>標題看得出、或集數完整包含另一季的是合輯；合輯九成以上的集在別的清單都有就不列。名稱不同但對到同一個 AniList 編號、語言互補的季，配成同一季的配音版（例如 Dr.STONE 的粵語與日語清單）。</li>
+    <li><b>命名與排序</b>作品名取原聲首季中最短的名稱；季有季數照季數，沒寫季數的（「續」「完」「The Final Season」）依 AniList 首播時間插入（<code>orderSeasons</code>）；單篇排最後。</li>
+  </ol>
+</section>
+
+<section id="formats">
+  <h2><span class="no">06</span>資料格式</h2>
+  <h3><code>public/data/index.json</code>（首頁與瀏覽頁一次載入，約 550 KB）</h3>
+<pre><code>{ generatedAt, channels: [{ key, name }], works: Work[] }
+Work = { id, title, channel, origin, alt[],          // alt：各季名稱與別名，給搜尋用
+         genres[], tags[], facets[],                // 卡片顯示最新季；facets＝所有季的聯集，給篩選用
+         year, season, status, format, score, popularity, trending,
+         seasons, eps, totalEps, views, updated,    // updated：最新一集的上架時間
+         thumb, cover, banner, anilistId, how }</code></pre>
+  <h3><code>public/data/works/&lt;id&gt;.json</code>（進作品頁或播放頁時才載入）</h3>
+<pre><code>{ id, desc, descLang: 'zh' | 'en',
+  members,                                         // 有會員限定集時，該清單 ID（作品頁連到 YouTube）
+  seasons: [{ name, kind: 'season' | 'collection' | 'special',
+              dubs: [{ lang, list, episodes: [{ id, n, title, sec, ext }] }] }] }</code></pre>
+  <p>作品 ID 是「頻道＋作品名」的雜湊，名稱不變就穩定；播放頁網址 <code>/watch/&lt;作品&gt;/&lt;影片 ID&gt;</code>，影片 ID 在作品內唯一，所以季與配音版都能從它反推（<code>work.ts</code> 的 <code>locate</code>）。</p>
+  <h3><code>public/data/report.json</code>（給人看的同步報告）</h3>
+  <p><code>units</code> 配額用量、<code>unmatched</code> 沒對上 AniList 的清單、<code>guessed</code> 用猜的對應（建議抽查）、<code>dropped</code> 成人類、<code>desc</code> 各頻道中文／英文簡介數、<code>epDescSamples</code> Ani-One 第 1 集影片說明抽樣、<code>counts</code>。</p>
+  <h3><code>sync/cache/raw.json</code>（不進 git）</h3>
+  <p>每個頻道 <code>{ members[], uploadIds[], lists[{ id, title, desc, n, videoIds[] }], videos[{ id, title, desc, at, live, sec, views, embeddable, age, twBlocked }] }</code>。影片的 <code>desc</code> 欄位在 2026-11-18 之後的完整同步才有。</p>
+</section>
+
+<section id="front">
+  <h2><span class="no">07</span>前端</h2>
+  <h3>路由（hash 模式，GitHub Pages 不需改寫規則）</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>路徑</th><th>頁面</th><th>重點</th></tr></thead>
+    <tbody>
+      <tr><td><code>/</code></td><td>Home</td><td>主打、繼續觀看（含進度條）、片單有更新、我的片單、最近更新、趨勢、人氣排名、題材列</td></tr>
+      <tr><td><code>/browse</code></td><td>Browse</td><td>單行工具列（搜尋、排序、篩選），展開後分組：題材、標籤、國家、進階；已選條件可點 × 移除</td></tr>
+      <tr><td><code>/title/:id</code></td><td>Title</td><td>海報、簡介（4 行可展開）、季與配音下拉、集數（看過打勾、無此配音）、劇場版／特別篇、分享、清除紀錄</td></tr>
+      <tr><td><code>/watch/:id/:ep?</code></td><td>Watch</td><td>YouTube 嵌入、續播到秒、<code>?t=</code> 從指定秒數開始、播完倒數 5 秒、快捷鍵、分享（可帶時間）</td></tr>
+      <tr><td><code>/list</code></td><td>MyList</td><td>片單格狀列表，加入時間／最近更新排序</td></tr>
+      <tr><td><code>/history</code></td><td>History</td><td>以作品為單位的觀看紀錄，最後看到第幾集、繼續、清除</td></tr>
+      <tr><td><code>/settings</code></td><td>Settings</td><td>自動播放下一集（之後的設定也放這裡）</td></tr>
+      <tr><td><code>/about</code></td><td>About</td><td>版權、資料來源、隱私</td></tr>
+    </tbody>
+  </table></div>
+  <h3>模組</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>檔案</th><th>職責</th></tr></thead>
+    <tbody>
+      <tr><td><code>data.ts</code></td><td>載入 <code>index.json</code>（全站快取一份）與 <code>works/&lt;id&gt;.json</code>。</td></tr>
+      <tr><td><code>catalog.ts</code></td><td>篩選、排序、主打挑選、卡片資訊列、集標題清理（去掉宣傳尾巴與重複作品名）。</td></tr>
+      <tr><td><code>work.ts</code></td><td>作品內的位置（季、配音版、集）：<code>locate</code>、<code>nextSpot</code>（季末接下一季）、<code>switchDub</code>（換配音對到同一集數）、<code>episodeRows</code>（無此配音）。</td></tr>
+      <tr><td><code>store.ts</code></td><td>localStorage 的所有個人資料（見第 8 節），以及備份的匯出、驗證、合併。</td></tr>
+      <tr><td><code>preview.ts</code> ＋ <code>Preview.vue</code></td><td>卡片預覽：桌面滑鼠停 450ms 放大成預覽卡，觸控點擊開底部面板；全站一份，畫在橫列外面以免被裁切。</td></tr>
+      <tr><td><code>player.ts</code></td><td>YouTube IFrame API 載入器與型別。</td></tr>
+      <tr><td><code>keys.ts</code></td><td>播放頁快捷鍵對應：空白鍵／K、←→、0～9（跳到 0%～90%）、F、M、N／P。</td></tr>
+      <tr><td><code>share.ts</code></td><td>系統分享選單或複製連結、提示訊息、時間格式。</td></tr>
+      <tr><td><code>style.css</code></td><td>「朱印映畫館」設計：色彩、字級、間距 token，思源宋體標題、朱紅強調色。</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="local">
+  <h2><span class="no">08</span>本機資料與備份</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>localStorage key</th><th>內容</th></tr></thead>
+    <tbody>
+      <tr><td><code>aniqube:progress:works</code></td><td>繼續觀看：作品 → { 影片 ID, 秒數, 時間, 這集長度 }</td></tr>
+      <tr><td><code>aniqube:list:works</code></td><td>我的片單：作品 ID 陣列，新加的在前</td></tr>
+      <tr><td><code>aniqube:watched:works</code></td><td>看過的集：作品 → 影片 ID 陣列（播放超過 30 秒）</td></tr>
+      <tr><td><code>aniqube:last:works</code></td><td>每部作品最後觀看時間（觀看紀錄排序用）</td></tr>
+      <tr><td><code>aniqube:seen:works</code></td><td>有新集的基準：上次看這部作品時它的最後更新時間</td></tr>
+      <tr><td><code>aniqube:settings</code></td><td>設定（目前只有 autoplay）</td></tr>
+    </tbody>
+  </table></div>
+  <p>個人選單的「匯出備份檔」把以上全部存成 <code>aniqube-備份-日期.json</code>（<code>{ app: 'aniqube', version: 1, list, progress, watched, seen, last, settings }</code>）；匯入時先驗證格式，再<b>合併</b>：片單與看過取聯集、進度留較新的、設定以備份檔為準。</p>
+</section>
+
+<section id="config">
+  <h2><span class="no">09</span>設定與人工檔案</h2>
+  <h3><code>sources.json</code></h3>
+  <div class="tbl"><table>
+    <thead><tr><th>欄位</th><th>作用</th></tr></thead>
+    <tbody>
+      <tr><td><code>channels[]</code></td><td>key、頻道 ID、名稱、製作國（決定原聲語言）、最短集長 <code>minSec</code>；可覆寫 <code>memberMarkers</code>（騰訊設成空字串：它的「会员抢先看」在 YouTube 上是公開影片）。</td></tr>
+      <tr><td><code>maxSec</code> / <code>standaloneMinSec</code></td><td>集長上限；單篇的最短長度。</td></tr>
+      <tr><td><code>titleDeny</code></td><td>標題排除詞（預告、花絮、直播、連播、音樂會⋯），套用在清單與影片標題。</td></tr>
+      <tr><td><code>memberMarkers</code></td><td>標題含這些字就視為搶先看、不收。</td></tr>
+      <tr><td><code>standaloneAllow</code> / <code>standaloneDeny</code></td><td>單篇必須像劇場版／OVA／特別篇，且不能是談話節目、開箱、特攝。</td></tr>
+      <tr><td><code>excludeSeasons</code></td><td>直接排除的清單 ID（混合多部作品的清單）。</td></tr>
+    </tbody>
+  </table></div>
+  <h3>人工檔案</h3>
+  <p><code>manual-matches.json</code>：<code>{ "清單ID": AniList編號 }</code>，<code>null</code> 表示刻意不對應；優先於自動對應。<code>manual-works.json</code>：<code>{ "清單ID": "作品名" }</code>，把清單指定到某部作品，被指定的作品不參與自動合併，所以也是「拆開合錯的作品」的方法。改完跑 <code>npm run rebuild</code>。</p>
+  <h3><code>sync/taxonomy.mjs</code></h3>
+  <p>AniList 題材（18 個，如動作、戀愛）與標籤（15 個，如異世界、轉生、刀劍）的中文名；只收這裡列出的，要增減改這個檔。</p>
+</section>
+
+<section id="deploy">
+  <h2><span class="no">10</span>部署與排程</h2>
+  <ol class="steps">
+    <li><b>觸發</b>每天 UTC 20:00（台灣 04:00）排程、手動（Actions 頁 Run workflow）、或推送到 main。</li>
+    <li><b>測試</b><code>npm ci</code> → <code>npm test</code>（同步端＋前端）。</li>
+    <li><b>同步（只有排程與手動）</b><code>npm run sync</code>，金鑰來自 repo Secret <code>YOUTUBE_API_KEY</code>。CI 上沒有快取，每次都完整抓取，約 3,000 單位、7 分鐘。</li>
+    <li><b>提交資料</b>機器人提交 <code>public/data</code>（每天一次，也讓排程不會因 60 天無活動被停用）。</li>
+    <li><b>建置與部署</b><code>vite build</code> → 上傳 <code>dist/</code> → GitHub Pages：<a href="https://xupmtp.github.io/AniQube/">xupmtp.github.io/AniQube</a>。</li>
+  </ol>
+  <div class="note">本機改程式後推送前先 <code>git pull --rebase</code>：機器人每天會推資料提交。<code>public/data</code> 衝突時保留任一邊都行，之後 <code>npm run rebuild</code> 重產即可。</div>
+</section>
+
+<section id="dev">
+  <h2><span class="no">11</span>開發指令與測試</h2>
+<pre><code>npm install
+YOUTUBE_API_KEY=金鑰 npm run sync   # 完整同步（花配額），也會更新 sync/cache/raw.json
+npm run rebuild                    # 用快取重跑所有規則，0 配額、免金鑰
+npm run dev                        # 開發伺服器 http://localhost:5173/
+npm test                           # 同步端與前端測試
+npx vue-tsc --noEmit               # 型別檢查
+npm run build                      # 產生 dist/</code></pre>
+  <p>Node 需 22.15 以上（<code>zlib.zstdDecompressSync</code> 解壓離線資料集、<code>--experimental-strip-types</code> 跑 TS 測試）。測試慣例：非瑣碎的邏輯各留一個可執行的檢查，同步端有端對端測試（假的 YouTube／AniList），前端的純邏輯模組各有 <code>*.test.ts</code>。</p>
+  <p>金鑰只從環境變數讀，<b>不得寫進任何檔案或提交</b>。</p>
+</section>
+
+<section id="more">
+  <h2><span class="no">12</span>延伸文件</h2>
+  <div class="grid2">
+    <div class="card"><h4><a href="../CONTEXT.md">CONTEXT.md</a></h4><p>名詞表：作品、季、配音版、原聲、合輯、單篇、看過、有新集⋯</p></div>
+    <div class="card"><h4><a href="adr/">docs/adr/</a></h4><p>0001 靜態片庫不設後端・0002 用離線資料集對應 AniList・0003 卡片以作品為單位</p></div>
+    <div class="card"><h4><a href="features.md">features.md</a></h4><p>已完成、進行中、暫緩、不做的功能清單</p></div>
+    <div class="card"><h4><a href="dataflow.html">dataflow.html</a></h4><p>改了什麼規則要重跑到哪一步</p></div>
+    <div class="card"><h4><a href="research/feature-gap-vs-streaming.md">feature-gap 研究</a></h4><p>與 Netflix、動畫瘋、Crunchyroll 的功能比較</p></div>
+    <div class="card"><h4><a href="../HANDOFF.md">HANDOFF.md</a></h4><p>交接摘要、金鑰規則、已知的環境坑</p></div>
+  </div>
+  <footer>動漫立方 AniQube 架構說明・依 2026-11-18 的程式碼整理（main 分支）。程式碼 MIT；名稱對照使用 anime-offline-database（ODbL-1.0）。</footer>
+</section>
+</main>
+</div>
+
+<script>
+  // 目錄標示目前章節（純增強，沒有 JS 也能用）
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const io = new IntersectionObserver((es) => {
+    for (const e of es) if (e.isIntersecting) links.forEach((a) => a.classList.toggle('on', a.hash === '#' + e.target.id));
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('main section').forEach((s) => io.observe(s));
+</script>
+</body>
+</html>
