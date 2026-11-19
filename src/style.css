@@ -106,8 +106,10 @@ main { min-height: calc(100vh - 120px); }
 .badge.resume { right: auto; left: var(--s2); background: var(--shu); color: #fff; }
 .ep-bar { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin: var(--s2) 0; padding-bottom: var(--s2); border-bottom: 1px solid var(--line); color: var(--mute); font-size: var(--fs-sm); }
 .ep-bar .link { color: var(--kin); }
-.src-bar { align-items: center; margin: var(--s3) 0 0; }
-.src-bar b { color: var(--mute); font-size: var(--fs-sm); font-weight: 400; }
+/* 播放頁動作列：這一支的配音、片源小下拉 */
+.ver { min-height: 46px; padding: 8px 34px 8px 16px; border-radius: 999px; border: 1px solid var(--shu); background: var(--shu-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23ff8466'/%3E%3C/svg%3E") no-repeat right 14px center; -webkit-appearance: none; appearance: none; color: var(--shu-hi); font-size: var(--fs-sm); font-weight: 700; cursor: pointer; transition: background-color .2s; }
+.ver:hover { background-color: #d23a2240; }
+.ver option { color: var(--text); background: var(--ink-3); }
 .sp-type { font-style: normal; margin-right: var(--s2); padding: 1px 6px; border-radius: 4px; background: var(--ink-2); border: 1px solid var(--line); color: var(--kin); font-size: var(--fs-xs); }
 .h-note { margin-left: var(--s3); color: var(--mute); font-size: var(--fs-sm); font-weight: 400; }
 .badge.lock { top: auto; bottom: var(--s2); display: grid; place-items: center; padding: 3px; color: var(--mute); }

@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { epLabel, epNo, fmtDur, metaLine, playlistUrl, posterOf } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
-import { clearHistory, inList, isWatched, markSeen, prefs, progress, settings, toggleList, watched } from '../store.ts';
+import { clearHistory, inList, isWatched, markSeen, progress, settings, toggleList, watched } from '../store.ts';
 import type { Detail, Work } from '../types.ts';
 import { firstSpot, locate, unionRows } from '../work.ts';
 import { pageUrl, share } from '../share.ts';
@@ -39,8 +39,7 @@ const specials = computed(() => indexed.value.filter(({ x }) => x.kind === 'spec
 const season = computed(() => detail.value?.seasons[sel.value.s]);
 const showSp = computed(() => sel.value.s === -1 || season.value?.kind === 'special');
 const options = computed(() => [...main.value.map((m) => ({ s: m.s, name: m.x.name })), ...(specials.value.length ? [{ s: -1, name: '劇場版與特別篇' }] : [])]);
-const pref = computed(() => prefs[id.value] ?? {});
-const rows = computed(() => { const r = season.value && !showSp.value ? unionRows(detail.value!, sel.value.s, pref.value) : []; return settings.newestFirst ? [...r].reverse() : r; });
+const rows = computed(() => { const r = season.value && !showSp.value ? unionRows(detail.value!, sel.value.s) : []; return settings.newestFirst ? [...r].reverse() : r; });
 const count = computed(() => rows.value.length);
 const seenRow = (ids: string[]) => ids.some((x) => isWatched(id.value, x)); // 看過以集數為準，不管哪個配音、片源
 
@@ -89,7 +88,7 @@ const enc = encodeURIComponent;
           <option v-for="o in options" :key="o.s" :value="o.s">{{ o.name }}</option>
         </select>
       </div>
-      <SpecialList v-if="showSp" :id="work.id" :items="specials" :pref="pref" :cur="progress[work.id]?.ep" />
+      <SpecialList v-if="showSp" :id="work.id" :items="specials" :cur="progress[work.id]?.ep" />
       <template v-else-if="season">
         <div class="ep-bar"><span>共 {{ count }} 集</span><button class="link" :aria-label="`排序：${settings.newestFirst ? '新到舊' : '舊到新'}，點一下切換`" @click="settings.newestFirst = !settings.newestFirst">{{ settings.newestFirst ? '新到舊' : '舊到新' }} ⇅</button></div>
         <ol class="eps">

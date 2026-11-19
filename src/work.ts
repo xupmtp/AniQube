@@ -1,9 +1,9 @@
 // 作品內的位置：第幾季、哪個配音版、第幾集。播放頁與作品頁共用，純函式所以能直接測。
-// 集數列表是一季裡所有配音版、片源的聯集，同一集只列一次；換配音、換片源只在播放頁（docs/adr/0010）
+// 集數列表是一季裡所有配音版、片源的聯集，同一集只列一次；換配音、換片源只在播放頁、只換那一支（docs/adr/0010）
 import type { Detail, Episode, Season } from './types.ts';
 
 export interface Spot { s: number; d: number; i: number }
-/** 觀看者在這部作品選過的配音與片源（在播放頁切換過才有） */
+/** 挑版本時優先的配音與片源（dubChoices 用；列表、上下一集都用預設） */
 export interface Pref { lang?: string; ch?: string }
 /** 列表的一列：這一集要播的那支（s、d、i），與同一集所有版本的影片 ID（看過的標記用） */
 export interface Row extends Spot { n: number; ep: Episode; ids: string[] }
@@ -40,24 +40,24 @@ export function unionRows(det: Detail, s: number, pref: Pref = {}): Row[] {
 }
 
 /** 從頭看：第一個非單篇的季的第一集 */
-export function firstSpot(det: Detail, pref: Pref = {}): Spot {
+export function firstSpot(det: Detail): Spot {
   const s = Math.max(0, det.seasons.findIndex((x) => x.kind !== 'special'));
-  const { d, i } = unionRows(det, s, pref)[0];
+  const { d, i } = unionRows(det, s)[0];
   return { s, d, i };
 }
 
-/** 下一集（照偏好挑版本）；這季看完接下一季（略過單篇），單篇看完就停 */
-export function nextSpot(det: Detail, p: Spot, pref: Pref = {}): Spot | null {
-  const rows = unionRows(det, p.s, pref), k = rows.findIndex((r) => r.n === epAt(det, p).n);
+/** 下一集（照預設挑版本，不沿用這一支的配音、片源）；這季看完接下一季（略過單篇），單篇看完就停 */
+export function nextSpot(det: Detail, p: Spot): Spot | null {
+  const rows = unionRows(det, p.s), k = rows.findIndex((r) => r.n === epAt(det, p).n);
   if (k + 1 < rows.length) return rows[k + 1];
   if (det.seasons[p.s].kind === 'special') return null;
   const s = det.seasons.findIndex((x, j) => j > p.s && x.kind !== 'special');
-  return s < 0 ? null : unionRows(det, s, pref)[0];
+  return s < 0 ? null : unionRows(det, s)[0];
 }
 
 /** 上一集；季的第一集就沒有 */
-export function prevSpot(det: Detail, p: Spot, pref: Pref = {}): Spot | null {
-  const rows = unionRows(det, p.s, pref), k = rows.findIndex((r) => r.n === epAt(det, p).n);
+export function prevSpot(det: Detail, p: Spot): Spot | null {
+  const rows = unionRows(det, p.s), k = rows.findIndex((r) => r.n === epAt(det, p).n);
   return k > 0 ? rows[k - 1] : null;
 }
 

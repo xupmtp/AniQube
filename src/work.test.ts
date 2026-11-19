@@ -37,10 +37,10 @@ test('unionRows：片源聯集，同一集重複只留一支：偏好片源 > �
   assert.deepEqual(sourceChoices(two, { s: 0, d: 1, i: 2 }).map((x) => x.ch), ['yuewen']);
 });
 
-test('nextSpot / prevSpot：照偏好接下一集，季末接下一季，不接到單篇', () => {
+test('nextSpot / prevSpot：照預設接下一集（不沿用這一支的配音），季末接下一季，不接到單篇', () => {
   assert.equal(epAt(det, nextSpot(det, { s: 0, d: 0, i: 1 })!).id, 't3');            // 原聲沒有第 3 集 → 國語
-  assert.equal(epAt(det, nextSpot(det, { s: 0, d: 1, i: 0 }, { lang: '國語' })!).id, 't2');
-  assert.equal(epAt(det, nextSpot(det, { s: 0, d: 1, i: 2 }, { lang: '國語' })!).id, 'k1'); // 第二季沒有國語 → 原聲
+  assert.equal(epAt(det, nextSpot(det, { s: 0, d: 1, i: 0 })!).id, 'j2');            // 看國語第 1 集，下一集仍是原聲
+  assert.equal(epAt(det, nextSpot(det, { s: 0, d: 1, i: 2 })!).id, 'k1');
   assert.equal(nextSpot(det, { s: 1, d: 0, i: 0 }), null);
   assert.equal(nextSpot(det, { s: 2, d: 0, i: 0 }), null);
   assert.equal(epAt(det, prevSpot(det, { s: 0, d: 1, i: 2 })!).id, 'j2');

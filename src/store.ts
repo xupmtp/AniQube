@@ -20,9 +20,6 @@ watch(seen, () => save('aniqube:seen:works', seen), { deep: true });
 // 看過的集：每部作品記下播放超過 30 秒的影片 ID（見 CONTEXT.md「看過」），不設上限
 export const watched = reactive<Record<string, string[]>>(load('aniqube:watched:works', {}));
 watch(watched, () => save('aniqube:watched:works', watched), { deep: true });
-// 配音與片源的偏好：觀看者在播放頁切換過的（docs/adr/0010），列表與下一集都優先用它
-export const prefs = reactive<Record<string, { lang?: string; ch?: string }>>(load('aniqube:prefs:works', {}));
-watch(prefs, () => save('aniqube:prefs:works', prefs), { deep: true });
 // 觀看紀錄的排序依據：每部作品最後一次播放的時間（ms）
 export const lastWatched = reactive<Record<string, number>>(load('aniqube:last:works', {}));
 watch(lastWatched, () => save('aniqube:last:works', lastWatched), { deep: true });
@@ -41,7 +38,6 @@ export function migrateIds(moved: Record<string, string>) {
     if (i >= 0) { if (myList.includes(to)) myList.splice(i, 1); else myList.splice(i, 1, to); }
     if (seen[from]) { seen[to] = seen[to] && seen[to] < seen[from] ? seen[to] : seen[from]; delete seen[from]; }
     if (watched[from]) { watched[to] = [...new Set([...(watched[to] ?? []), ...watched[from]])]; delete watched[from]; }
-    if (prefs[from]) { prefs[to] ??= prefs[from]; delete prefs[from]; }
     if (lastWatched[from]) { lastWatched[to] = Math.max(lastWatched[to] ?? 0, lastWatched[from]); delete lastWatched[from]; }
   }
 }
@@ -67,7 +63,7 @@ export function hasNew(w: { id: string; updated: string }): boolean {
 export function markWatched(id: string, ep: string) { const l = (watched[id] ??= []); if (!l.includes(ep)) l.push(ep); lastWatched[id] = Date.now(); }
 export const isWatched = (id: string, ep: string) => !!watched[id]?.includes(ep);
 /** 清除觀看紀錄：進度與看過的集一起清掉（只想從繼續觀看拿掉用 clearProgress） */
-export function clearHistory(id: string) { delete progress[id]; delete watched[id]; delete lastWatched[id]; delete prefs[id]; }
+export function clearHistory(id: string) { delete progress[id]; delete watched[id]; delete lastWatched[id]; }
 /** 觀看紀錄：有看過的集或有進度的作品，依最後觀看時間新到舊；沒有時間的（舊紀錄）排最後 */
 export const historyIds = () => [...new Set([...Object.keys(watched), ...Object.keys(progress)])]
   .map((id) => ({ id, at: lastWatched[id] ?? progress[id]?.at ?? 0 }))

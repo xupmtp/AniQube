@@ -1,13 +1,13 @@
 <script setup lang="ts">
 // 劇場版與特別篇（含合集）的列表：作品頁與播放頁的季選單選到這一項時顯示。
-// 每部片照這部作品的配音、片源偏好挑一支（沒有偏好用原聲），換配音在播放頁（docs/adr/0010）
+// 每部片列原聲那一支，換配音在播放頁（docs/adr/0010）
 import { fmtDur } from '../catalog.ts';
 import { isWatched } from '../store.ts';
 import type { Season } from '../types.ts';
 
-const props = defineProps<{ id: string; items: { x: Season; s: number }[]; cur?: string; pref?: { lang?: string; ch?: string } }>();
+defineProps<{ id: string; items: { x: Season; s: number }[]; cur?: string }>();
 const enc = encodeURIComponent;
-const dubOf = (x: Season) => x.dubs.find((d) => d.lang === props.pref?.lang && d.ch === props.pref?.ch) ?? x.dubs.find((d) => d.lang === props.pref?.lang) ?? x.dubs[0];
+const dubOf = (x: Season) => x.dubs[0];
 </script>
 
 <template>
