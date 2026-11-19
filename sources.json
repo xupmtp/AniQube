@@ -14,5 +14,5 @@
   "standaloneMinSec": 1200,
   "standaloneAllow": "劇場版|剧场版|電影|电影|OVA|OAD|特別篇|特别篇|總集篇|总集篇|Special Edition|映畫",
   "standaloneDeny": "Gossip|漫漫聊|夜放送|開箱|猜謎|回顧|特典",
-  "titleDeny": "預告|预告|宣傳|宣传|花絮|精華|精华|集錦|集锦|Trailer|Teaser|Highlights?|\\bClips?\\b|\\bPV\\b|\\bCM\\b|#shorts|直播|馬拉松|marathon|OPED|週邊|周边|專區|专区|合集|最新動畫資訊|情報|動畫資訊|專訪|訪談|懶人包|同時視聽|連播系列|音樂會|Ani-Music-One|自家製節目|學日文|假面騎士|\\p{Script=Han}戰隊|橡果兄弟|動漫大賞|动漫大赏|新年特別放送|新年特别放送|\\bOST\\b|\\bMV\\b|插曲|片頭曲|片头曲|片尾曲|Recap|回顧特輯|回顾特辑"
+  "titleDeny": "預告|预告|宣傳|宣传|花絮|精華|精华|集錦|集锦|Trailer|Teaser|Highlights?|\\bClips?\\b|\\bPV\\b|\\bCM\\b|#shorts|直播|馬拉松|marathon|OPED|週邊|周边|專區|专区|合集|最新動畫資訊|情報|動畫資訊|專訪|訪談|懶人包|同時視聽|連播系列|音樂會|Ani-Music-One|自家製節目|學日文|假面騎士|\\p{Script=Han}戰隊|橡果兄弟|映後訪問|動漫大賞|动漫大赏|新年特別放送|新年特别放送|\\bOST\\b|\\bMV\\b|插曲|插入曲|歌詞|片頭曲|片头曲|片尾曲|Recap|回顧特輯|回顾特辑"
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { epTitle, fmtDur, ytUrl } from '../catalog.ts';
+import { epLabel, fmtDur, ytUrl } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
 import { loadYT } from '../player.ts';
 import type { YTPlayer } from '../player.ts';
@@ -11,6 +11,7 @@ import { clock, pageUrl, share } from '../share.ts';
 import type { Detail } from '../types.ts';
 import { dubIndex, epAt, episodeRows, firstSpot, locate, nextSpot, sourceIndex, sourcesOf, switchDub } from '../work.ts';
 import type { Spot } from '../work.ts';
+import SpecialList from '../components/SpecialList.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -45,10 +46,14 @@ const spot = computed<Spot | null>(() => {
 });
 const ep = computed(() => (detail.value && spot.value ? epAt(detail.value, spot.value) : undefined));
 const season = computed(() => (detail.value && spot.value ? detail.value.seasons[spot.value.s] : undefined));
-const rows = computed(() => (season.value && spot.value ? episodeRows(season.value, spot.value.d) : []));
+const rows = computed(() => { const r = season.value && spot.value ? episodeRows(season.value, spot.value.d) : []; return settings.newestFirst ? [...r].reverse() : r; });
+const count = computed(() => rows.value.filter((r) => r.ep).length);
 const next = computed(() => (detail.value && spot.value ? nextSpot(detail.value, spot.value) : null));
 const prev = computed(() => (detail.value && spot.value && spot.value.i > 0 ? { ...spot.value, i: spot.value.i - 1 } : null));
-const seasons = computed(() => detail.value?.seasons.map((x, s) => ({ x, s })).filter(({ x }) => x.kind !== 'special') ?? []);
+const indexed = computed(() => detail.value?.seasons.map((x, s) => ({ x, s })) ?? []);
+const specials = computed(() => indexed.value.filter(({ x }) => x.kind === 'special'));
+// 季選單：各季，最後一項是劇場版與特別篇（s = -1）
+const options = computed(() => [...indexed.value.filter(({ x }) => x.kind !== 'special').map((m) => ({ s: m.s, name: m.x.name })), ...(specials.value.length ? [{ s: -1, name: '劇場版與特別篇' }] : [])]);
 const external = computed(() => !!ep.value?.ext || failed.value);
 
 const enc = encodeURIComponent;
@@ -57,6 +62,7 @@ const linkTo = (p: Spot) => `/watch/${enc(id.value)}/${epAt(detail.value!, p).id
 function pickDub(d: number) { if (spot.value) router.replace(linkTo(switchDub(detail.value!, spot.value, d))); }
 // 換季沿用目前的片源與配音版，那一季沒有就用原聲
 function pickSeason(s: number) {
+  if (s < 0) { router.push(linkTo({ s: specials.value[0].s, d: 0, i: 0 })); return; }
   const cur = season.value?.dubs[spot.value!.d];
   router.push(linkTo({ s, d: dubIndex(detail.value!.seasons[s], cur?.lang, cur?.ch), i: 0 }));
 }
@@ -173,7 +179,7 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
         <div>
           <RouterLink :to="`/title/${enc(id)}`" class="back">‹ {{ title }}</RouterLink>
           <h1>{{ season.bundle ? `合集 ${season.name}` : season.kind === 'special' ? season.name : `第 ${ep?.n} 集` }} <small>{{ ep ? fmtDur(ep.sec) : '' }}</small></h1>
-          <p class="ept">{{ season.kind === 'special' ? '' : `${season.name} · ` }}{{ ep && epTitle(ep.title) }}</p>
+          <p class="ept">{{ season.kind === 'special' ? (season.type ?? '') : `${season.name} · ${ep ? epLabel(ep, season.name) : ''}` }}</p>
         </div>
         <div class="actions">
           <details class="share-pop pop" @toggle="onShareToggle">
@@ -201,8 +207,8 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
     </div>
     <div class="side">
       <div class="pickers">
-        <select v-if="seasons.length > 1 && season.kind !== 'special'" :value="spot.s" aria-label="選擇季" @change="pickSeason(Number(($event.target as HTMLSelectElement).value))">
-          <option v-for="m in seasons" :key="m.s" :value="m.s">{{ m.x.name }}{{ m.x.kind === 'collection' ? '（合輯）' : '' }}</option>
+        <select v-if="options.length > 1" :value="season.kind === 'special' ? -1 : spot.s" aria-label="選擇季" @change="pickSeason(Number(($event.target as HTMLSelectElement).value))">
+          <option v-for="o in options" :key="o.s" :value="o.s">{{ o.name }}</option>
         </select>
         <select v-if="sources.length > 1" :value="season.dubs[spot.d].ch" aria-label="選擇片源" @change="pickSource(($event.target as HTMLSelectElement).value)">
           <option v-for="c in sources" :key="c" :value="c">{{ labels[c] ?? c }}</option>
@@ -211,10 +217,12 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
           <option v-for="o in dubOpts" :key="o.i" :value="o.i">{{ o.d.lang }}配音</option>
         </select>
       </div>
-      <ol class="eps">
+      <div v-if="season.kind !== 'special'" class="ep-bar"><span>共 {{ count }} 集</span><button class="link" :aria-label="`排序：${settings.newestFirst ? '新到舊' : '舊到新'}，點一下切換`" @click="settings.newestFirst = !settings.newestFirst">{{ settings.newestFirst ? '新到舊' : '舊到新' }} ⇅</button></div>
+      <SpecialList v-if="season.kind === 'special'" :id="id" :items="specials" :labels="labels" :cur="ep?.id" />
+      <ol v-else class="eps">
         <li v-for="r in rows" :key="r.n">
           <RouterLink v-if="r.ep" :to="`/watch/${enc(id)}/${r.ep.id}`" :class="{ cur: r.ep.id === ep?.id, seen: isWatched(id, r.ep.id) }">
-            <b>{{ r.n }}</b><span :title="epTitle(r.ep.title)">{{ epTitle(r.ep.title, season.name) }}</span>
+            <b>{{ r.n }}</b><span :title="r.ep.title">{{ epLabel(r.ep, season.name) }}</span>
             <small><span v-if="isWatched(id, r.ep.id)" class="tick" aria-label="看過">✓</span>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · YouTube</template></small>
           </RouterLink>
           <div v-else class="none"><b>{{ r.n }}</b><span>無此配音</span></div>

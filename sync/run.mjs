@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { zstdDecompressSync } from 'node:zlib';
-import { buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, isMixed, parseHints, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
+import { buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, episodeSubs, isMixed, parseHints, seasonLabel, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
 import { BLOCKED_GENRES, GENRES, TAGS } from './taxonomy.mjs';
 
 const KEY = process.env.YOUTUBE_API_KEY;
@@ -308,13 +308,38 @@ function sortDubs(dubs) {
 // 合集在作品頁的名稱：「第 1–45 集」「第 3 季 第 1–17 集」「第 2 季全集」「全集」
 const bundleLabel = ({ a, b, season }) => (a != null ? `${season ? `第 ${season} 季 ` : ''}第 ${a}–${b} 集` : season ? `第 ${season} 季全集` : '全集');
 
+// 季的顯示名稱（CONTEXT.md「季」）：有季數的「第 N 季 副標」，沒季數的用副標，判斷不出季的那組叫「全部集數」
+function seasonName(x, base) {
+  if (x.bundle) return bundleLabel(x.bundle);
+  if (x.kind === 'special') { // 去掉作品名與類型字樣（類型另外標示）：「劇場版 【紅蓮之絆篇】」→「紅蓮之絆篇」
+    const fromTitle = x.dubs[0].single ? episodeSubs([x.dubs[0].episodes[0].title], [base, x.name], x.dubs[0].channel.origin === 'CN')[0] : '';
+    const { sub } = seasonLabel((fromTitle || x.name).replace(/劇場版|剧场版|電影版?|电影版?|\bThe Movie\b|\bOVA\b|\bOAD\b|特別篇|特别篇|總集篇|总集篇|木棉花電影院/gi, ' ').replace(/【\s*】|[(（]\s*[)）]/g, ' '), base);
+    return sub.replace(/^【([^】]+)】$/, '$1') || x.name;
+  }
+  const { no, sub } = seasonLabel(x.name, base);
+  if (x.loose) return sub || '全部集數';
+  return no != null ? (sub ? `第 ${no} 季 ${sub}` : `第 ${no} 季`) : sub;
+}
+// 劇場版與特別篇的類型標示：標題的字樣優先，其次 AniList 的形式
+function specialType(x) {
+  if (x.bundle) return '合集';
+  const t = x.dubs[0].episodes[0]?.title ?? x.name;
+  if (/總集篇|总集篇|總集編/.test(t)) return '總集篇';
+  if (/劇場版|剧场版|電影|电影|The Movie|MOVIE/i.test(t)) return '劇場版';
+  if (/\bOVA\b|\bOAD\b/i.test(t)) return 'OVA';
+  return { MOVIE: '劇場版', OVA: 'OVA' }[x.dubs[0].a?.format] ?? '特別篇';
+}
+
 const works = [], workFiles = [];
 report.fuzzy = [];
 {
   for (const w0 of groupWorks(items, manualWorks, related, apart, report.fuzzy, chainOf)) {
     // 合集依季、集數由小到大排在最後
     const kept = pickBundles(w0.seasons), at = ({ season, a: n }) => (season ?? 0) * 1e5 + (n ?? 0);
-    const ordered = [...kept.filter((x) => !x.bundle), ...kept.filter((x) => x.bundle).sort((p, q) => at(p.bundle) - at(q.bundle))];
+    // 劇場版與特別篇：單篇依首播（沒有就上架）時間由舊到新，合集接在後面依集數範圍
+    const dated = (x) => Math.min(...x.dubs.map((d) => d.when ?? Infinity)) * 1e6 + Date.parse(x.dubs[0].episodes[0]?.at ?? 0) / 1e6;
+    const ordered = [...kept.filter((x) => x.kind !== 'special'), ...kept.filter((x) => x.kind === 'special' && !x.bundle).sort((p, q) => dated(p) - dated(q)),
+      ...kept.filter((x) => x.bundle).sort((p, q) => at(p.bundle) - at(q.bundle))];
     const w = { ...w0, seasons: ordered.map((x) => ({ ...x, dubs: sortDubs(x.dubs) })) };
     if (!w.seasons.length) continue;
     // 作品歸在 sources.json 最前面的那個頻道（作品 ID 用它算，加新頻道時舊作品的 ID 不變）
@@ -353,16 +378,21 @@ report.fuzzy = [];
     workFiles.push({
       id, desc, descLang: zh ? 'zh' : 'en', members: main.map(pick).find((d) => d.members > 0)?.id ?? null,
       seasons: w.seasons.map((x) => ({
-        name: x.bundle ? bundleLabel(x.bundle) : x.name, kind: x.kind, ...(x.bundle && { bundle: true }),
-        dubs: x.dubs.map((d) => ({
-          lang: d.lang, ch: d.channel.key, list: d.single ? null : d.id, episodes: d.episodes.map(({ id: v, n, title, sec, ext }) => ({ id: v, n, title, sec, ext })),
-        })),
+        name: seasonName(x, w.base), kind: x.kind, ...(x.bundle && { bundle: true }), ...(x.kind === 'special' && { type: specialType(x) }),
+        dubs: x.dubs.map((d) => {
+          const subs = episodeSubs(d.episodes.map((e) => e.title), [w.base, x.name, d.name], d.channel.origin === 'CN');
+          return { lang: d.lang, ch: d.channel.key, list: d.single ? null : d.id, episodes: d.episodes.map(({ id: v, n, title, sec, ext }, i) => ({ id: v, n, title, sub: subs[i], sec, ext })) };
+        }),
       })),
     });
   }
 }
 
 // 保護：片庫一次縮水超過三成視為異常，不覆蓋（舊格式沒有 works，視為第一次）
+// 單篇已經歸進有 AniList 對應的作品，就不需要自己的對應，不列進未對應清單
+const covered = new Set(workFiles.filter((d) => works.find((w) => w.id === d.id)?.anilistId).flatMap((d) => d.seasons.flatMap((x) => x.dubs.map((b) => b.list ?? `v-${b.episodes[0].id}`))));
+report.unmatched = report.unmatched.filter((u) => !(u.id.startsWith('v-') && covered.has(u.id)));
+
 // 簡介統計：還是英文簡介的作品列出來，方便之後補
 report.desc = {};
 for (const ch of cfg.channels) {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles, isMixed } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles, isMixed, episodeSubs, seasonLabel, isExtra } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -168,14 +168,16 @@ test('groupWorks：分季、配音版、合輯、單篇', () => {
   assert.deepEqual(hunter[1].dubs.map((d) => d.id), ['mv', 'mv2']);                   // 單篇也配配音版
   assert.deepEqual(by['佐佐木'].seasons.map((s) => s.name), ['佐佐木 第一季', '佐佐木 第二季']);
   const colls = groupWorks([it('a', '某作', { raw: '某作(全部集數)', eps: ['1', '2', '3'] }), it('b', '某作S1-S2', { raw: '某作S1-S2', eps: ['1', '2'] }), it('c', '某作 第二季', { eps: ['2'] })]);
-  assert.deepEqual(colls[0].seasons.map((s) => [s.name, s.kind]), [['某作', 'season'], ['某作', 'collection'], ['某作 第二季', 'season']]); // 小合輯拆出第一季後被涵蓋 → 不列；大合輯還有第 3 集 → 保留
-  const keep = groupWorks([it('p', '佐佐木', { eps: ['x1', 'x2', 'x3', 'x4', 'x5'] }), it('q', '佐佐木 第二季', { eps: ['x3'] })]);
-  // 開頭單季沒有的集拆成第一季；拆完合輯還有單季沒有的集（x4、x5）→ 合輯保留
-  assert.deepEqual(keep[0].seasons.map((s) => [s.name, s.kind, s.dubs[0].episodes.map((e) => e.id).join()]),
-    [['佐佐木', 'season', 'x1,x2'], ['佐佐木', 'collection', 'x1,x2,x3,x4,x5'], ['佐佐木 第二季', 'season', 'x3']]);
-  const s1 = groupWorks([it('m', '無職(全集數)', { raw: '無職(全集數)', eps: ['a', 'b', 'c', 'd'] }), it('n', '無職 第2季', { eps: ['c', 'd'] })]);
-  assert.deepEqual(s1[0].seasons.map((s) => [s.name, s.kind]), [['無職', 'season'], ['無職 第2季', 'season']]); // 第一季拆出來後合輯全被涵蓋 → 不列
-  assert.equal(groupWorks([it('r', '平凡S2-S3', { raw: '平凡S2-S3', eps: ['a', 'b'] }), it('t', '平凡 S3', { eps: ['b'] })])[0].seasons[0].name, '平凡 第2季'); // 合輯從第幾季開始
+  assert.deepEqual(colls[0].seasons.map((s) => [s.name, s.kind]), [['某作 第1季', 'season'], ['某作 第二季', 'season']]); // 合輯都不顯示；名稱沒副標的合輯判斷不出季的集就是本傳（第 1 季）
+  // 合輯拆進各季：每集看標題的季數標記，沒標記的沿用前一集（開頭沒標記的是第 1 季）；那季已有同配音的清單就不重複放
+  const ep = (id, title) => ({ id, title, n: episodeNumber(title) });
+  const t2 = (id, name, eps, raw) => ({ id, name, rawTitle: raw ?? name, lang: '日語', single: false, order: 0, episodes: eps });
+  const s1 = groupWorks([t2('m', '無職', [ep('a', '無職 第01話'), ep('b', '無職 第02話'), ep('c', '無職～第2季 第01話'), ep('d', '無職～第2季 第02話')], '無職(全集數)'),
+    t2('n', '無職 第2季', [ep('c', '無職～第2季 第01話'), ep('d', '無職～第2季 第02話')])]);
+  assert.deepEqual(s1[0].seasons.map((s) => [s.name, s.dubs[0].episodes.map((e) => e.id).join()]), [['無職 第1季', 'a,b'], ['無職 第2季', 'c,d']]);
+  // 沒有季數標記，但集數又從 1 開始 → 下一季
+  const re = groupWorks([t2('r', '平凡', [ep('a', '平凡 第01話'), ep('b', '平凡 第02話'), ep('c', '平凡 第01話【新】'), ep('d', '平凡 第02話【新】')], '平凡S1-S2')]);
+  assert.deepEqual(re[0].seasons.map((s) => s.name), ['平凡 第1季', '平凡 第2季']);
   assert.equal(groupWorks([it('z', '某作 第二季')], { z: '另一部' })[0].base, '另一部');   // 人工作品對應表
 });
 
@@ -215,18 +217,21 @@ test('groupWorks：作品名取原聲首季中最短的；九成重複的合輯�
   const it = (id, name, o = {}) => ({ id, name, rawTitle: o.raw ?? name, lang: '日語', original: true, single: false, order: o.order ?? 0, aid: o.aid ?? null, episodes: (o.eps ?? [id]).map((x) => ({ id: x })) });
   const [hero] = groupWorks([it('a', '英雄學院 : I am a hero too', { aid: 1, order: 0 }), it('b', '英雄學院 第一季', { aid: 1, order: 5 })]);
   assert.equal(hero.base, '英雄學院');
-  const ten = Array.from({ length: 10 }, (_, i) => String(i));
-  const [w] = groupWorks([it('p', '某作S1-S2', { raw: '某作S1-S2', eps: ten }), it('q', '某作 全', { raw: '某作(全部集數)', eps: [...ten.slice(0, 9), 'x'] })]);
-  assert.equal(w.seasons.length, 1);
+  // 兩份幾乎一樣的合輯：拆開後是同一季，多出的那集補進去
+  const ep = (id, n) => ({ id, n, title: `某作 第${n}話` });
+  const ten = Array.from({ length: 10 }, (_, i) => ep(String(i), i + 1));
+  const both = (id, name, raw, eps) => ({ id, name, rawTitle: raw, lang: '日語', original: true, single: false, order: 0, aid: null, episodes: eps });
+  const [w] = groupWorks([both('p', '某作S1-S2', '某作S1-S2', ten), both('q', '某作 全', '某作(全部集數)', [...ten.slice(0, 9), ep('x', 11)])]);
+  assert.deepEqual(w.seasons.map((s) => [s.name, s.dubs[0].episodes.length]), [['某作 第1季', 11]]);
 });
 
-test('orderSeasons：有季數照季數，沒季數的依首播時間插入，都沒有的當第一季', () => {
+test('orderSeasons：有季數照季數，沒季數的依首播時間插入，都沒有的排最後', () => {
   const s = (name, no, when, order = 0) => ({ name, no, when: when ?? Infinity, order, kind: 'season', dubs: [] });
   const names = (l) => orderSeasons(l).map((x) => x.name);
   assert.deepEqual(names([s('完', null, 20201), s('續', null, 20152), s('首', null, 20132)]), ['首', '續', '完']);
   assert.deepEqual(names([s('完結篇', null, 20231), s('The Final Season', null, 20204), s('合輯', null, 20132), s('第二季', 2, 20172), s('第三季', 3, 20183)]),
     ['合輯', '第二季', '第三季', 'The Final Season', '完結篇']);
-  assert.deepEqual(names([s('第二季', 2, null), s('無資料', null, null, 1)]), ['無資料', '第二季']);
+  assert.deepEqual(names([s('第二季', 2, null), s('無資料', null, null, 1)]), ['第二季', '無資料']);
 });
 
 test('cleanDesc：騰訊只取「简介」之後，刪宣傳行與表情符號，太短回空字串', () => {
@@ -369,4 +374,32 @@ test('groupWorks：跨作品的合輯不收；只含劇場版的清單不算系�
     it('z', 'Love Live!全系列', { raw: 'Love Live！全系列', eps: ['l1', 's1', 's2', 's3'] })], {}, {}, { }, [], new Map());
   const ll = ws.find((w) => w.base === 'Love Live!');
   assert.ok(!ll || ll.seasons.every((s) => s.name !== 'Love Live!全系列')); // 大半是 Sunshine 的集 → 不收
+});
+
+test('episodeSubs：各頻道的集名取出副標', () => {
+  assert.deepEqual(episodeSubs(['用【循環利息】強制收回借出的魔力 第01話【放逐】｜Muse木棉花 動畫 線上看', '用【循環利息】強制收回借出的魔力 第02話【契約】｜Muse木棉花 動畫 線上看', '用【循環利息】強制收回借出的魔力 第03話【追放】｜Muse木棉花'], ['用【循環利息】強制收回借出的魔力']), ['放逐', '契約', '追放']);
+  assert.deepEqual(episodeSubs(['《某作》第1話 (繁中字幕 | 日語原聲)【Ani-One】', '《某作》第2話 (繁中字幕 | 日語原聲)【Ani-One】', '《某作》第3話 (繁中字幕 | 日語原聲)【Ani-One】'], ['某作']), ['', '', '']);
+  assert.deepEqual(episodeSubs(['🦊MULTISUB | EP01 | 狐狸精与结婚狂 |《狐妖小红娘》Fox Spirit Matchmaker | 阅文动漫', '🦊MULTISUB | EP02 | 白月初 |《狐妖小红娘》Fox Spirit Matchmaker | 阅文动漫', '🦊MULTISUB | EP03 | 涂山 |《狐妖小红娘》Fox Spirit Matchmaker | 阅文动漫'], ['狐妖小紅娘'], true), ['狐狸精與結婚狂', '白月初', '塗山']);
+  // 每集都一樣的標語拿掉；片名在副標中間的不動
+  assert.deepEqual(episodeSubs(['ENG SUB《斩神》Slay The Gods EP01 | 大夏境内，神明禁行 | 腾讯视频 - 动漫', 'ENG SUB《斩神》Slay The Gods EP02 | 大夏境内，神明禁行 | 腾讯视频 - 动漫', 'ENG SUB《斩神》Slay The Gods EP03 | 大夏境内，神明禁行 | 腾讯视频 - 动漫'], ['斬神'], true), ['', '', '']);
+  assert.deepEqual(episodeSubs(['暴走哈姆醬【第0回】暴走哈姆醬大量出現！', '暴走哈姆醬【第1回】啾4這麼可愛！', '暴走哈姆醬【第2回】哈姆'], ['暴走哈姆醬']), ['暴走哈姆醬大量出現！', '啾4這麼可愛！', '哈姆']);
+});
+
+test('seasonLabel：第 N 季＋副標；沒季數的用副標；譯名寫法不同算沒有副標', () => {
+  const l = (n, b) => { const { no, sub } = seasonLabel(n, b); return [no, sub]; };
+  assert.deepEqual(l('LoveLive Superstar 二期', 'Love Live! Superstar!!'), [2, '']);
+  assert.deepEqual(l('Dr.STONE 新石紀 (第二季)', 'Dr.STONE'), [2, '新石紀']);
+  assert.deepEqual(l('進擊的巨人 The Final Season', '進擊的巨人'), [null, 'The Final Season']);
+  assert.deepEqual(l('SPY x FAMILY間諜家家酒', 'SPY×FAMILY間諜家家酒'), [1, '']);
+  assert.deepEqual(l('魔導少年-最終章(妖精的尾巴)', '魔導少年(妖精的尾巴)'), [null, '最終章']);
+  assert.deepEqual(l('幼女戰記 2', '幼女戰記'), [2, '']);
+  assert.deepEqual(l('龍族II 悼亡者之瞳', '龍族'), [2, '悼亡者之瞳']);
+  assert.deepEqual(l('鑽石王牌act2 第二季', '鑽石王牌'), [2, 'act2']);
+});
+
+test('sortEpisodes：沒有集數的照上架時間排（新的在前的清單也排對）；清單裡的劇場版不算集', () => {
+  const e = (id, title, at) => ({ id, title, at });
+  assert.deepEqual(sortEpisodes([e('c', '前篇', '2024-03'), e('b', '中篇', '2024-02'), e('a', '序章', '2024-01')]).map((x) => [x.id, x.n]), [['a', 1], ['b', 2], ['c', 3]]);
+  assert.equal(isExtra('進擊的巨人-劇場版【前編 紅蓮的弓矢】'), true);
+  assert.equal(isExtra('進擊的巨人 第01話【給二千年後的你】'), false);
 });

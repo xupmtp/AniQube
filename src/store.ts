@@ -24,8 +24,9 @@ watch(watched, () => save('aniqube:watched:works', watched), { deep: true });
 export const lastWatched = reactive<Record<string, number>>(load('aniqube:last:works', {}));
 watch(lastWatched, () => save('aniqube:last:works', lastWatched), { deep: true });
 // 設定（設定頁）：之後新增的偏好也放這裡
-export interface Settings { autoplay: boolean }
-export const settings = reactive<Settings>({ autoplay: true, ...load<Partial<Settings>>('aniqube:settings', {}) });
+// newestFirst：集數列表由新到舊（只改列表順序，「下一集」仍往後）
+export interface Settings { autoplay: boolean; newestFirst: boolean }
+export const settings = reactive<Settings>({ autoplay: true, newestFirst: false, ...load<Partial<Settings>>('aniqube:settings', {}) });
 watch(settings, () => save('aniqube:settings', settings), { deep: true });
 
 /** 作品 ID 改了（例如跨頻道合併）：把舊 ID 的續播、片單、看過、觀看時間搬到新 ID，兩邊都有就合併 */

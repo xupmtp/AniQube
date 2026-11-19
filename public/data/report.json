@@ -1,11 +1,11 @@
 {
- "generatedAt": "2026-11-19T03:07:18.455Z",
+ "generatedAt": "2026-11-19T04:35:32.336Z",
  "units": 0,
  "unmatched": [
   {
    "id": "PLZi7HsS43BmI",
    "title": "Love Live！全系列",
-   "eps": 143
+   "eps": 142
   },
   {
    "id": "PL12UaAf_xzfpJ5cZMFVbaX8sczJfumXTd",
@@ -16,6 +16,16 @@
    "id": "PL12UaAf_xzfrEPTVwQ6InmGa0XwVs5D3O",
    "title": "叫我，對大哥(Web版)｜Muse木棉花 動畫 線上看",
    "eps": 5
+  },
+  {
+   "id": "PL12UaAf_xzfqlQ4-mcv1c3pt_F1MGE8h5",
+   "title": "【木棉花電影院】劇場版動畫｜Muse木棉花",
+   "eps": 47
+  },
+  {
+   "id": "v-V16YYCVg9wY",
+   "title": "【中日雙語字幕】暗殺教室-劇場版【365日倒數計時】｜Muse木棉花 動畫 線上看 ｜ 《劇場版「暗殺教室」：我們的時光》即將在台上映！2026/3/27 大銀幕相聚！",
+   "eps": 1
   },
   {
    "id": "PLJmgngTgKG9s",
@@ -88,32 +98,8 @@
    "Love Live!"
   ],
   [
-   "最狂輔助職業【話術士】世界最強戰團聽我號令",
-   "最狂輔助職業世界最強戰團聽我號令"
-  ],
-  [
-   "靠廢柴技能【狀態異常】成為最強的我將蹂躪一切",
-   "靠廢柴技能成為最強的我將蹂躪一切"
-  ],
-  [
-   "我要【招架】一切～反誤解的世界最強想成為冒險家",
-   "我要一切～反誤解的世界最強想成為冒險家"
-  ],
-  [
-   "輪迴7次的惡役千金，在前敵國享受隨心所欲的新婚生活",
-   "輪迴七次的惡役千金，在前敵國享受隨心所欲的新婚生活"
-  ],
-  [
-   "PUI PUI 天竺鼠車車 駕訓班篇",
-   "天竺鼠車車 駕訓班篇"
-  ],
-  [
    "請問您今天要來點兔子嗎？",
    "請問您今天要來點兔子嗎？ BLOOM"
-  ],
-  [
-   "槍彈辯駁3未來編",
-   "槍彈辯駁3未來篇"
   ],
   [
    "Fate/kaleid liner 魔法少女☆伊莉雅3rei!!",
@@ -122,32 +108,12 @@
   [
    "為美好的世界獻上祝福！3",
    "為美好的世界獻上祝福！2"
-  ],
-  [
-   "機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster",
-   "機動戰士鋼彈SEED Special Edition II 遙遠的拂曉 HD Remaster"
-  ],
-  [
-   "機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster",
-   "機動戰士鋼彈SEED Special Edition 完結篇 鳴動的宇宙 HD Remaster"
-  ],
-  [
-   "機動戰士鋼彈SEED DESTINY Special Edition 破碎的世界 HD Remaster",
-   "機動戰士鋼彈SEED DESTINY Special Edition II 各自的劍 HD Remaster"
-  ],
-  [
-   "機動戰士鋼彈SEED DESTINY Special Edition 破碎的世界 HD Remaster",
-   "機動戰士鋼彈SEED DESTINY Special Edition 完結編 自由的代價 HD Remaster"
-  ],
-  [
-   "機動戰士鋼彈SEED DESTINY Special Edition 破碎的世界 HD Remaster",
-   "機動戰士鋼彈SEED DESTINY Special Edition III 命運的地獄之火 HD Remaster"
   ]
  ],
  "desc": {
   "muse": {
    "zh": 295,
-   "en": 6
+   "en": 4
   },
   "anione": {
    "zh": 248,
@@ -180,19 +146,17 @@
   "人間最得意",
   "史上最強男主角",
   "力拔山河兮子唐",
-  "企鵝公路【木棉花電影院】",
   "不幸職業其實是最強的",
   "槍彈辯駁3絕望篇+希望篇",
   "擅長逃跑的殿下 第9.5話【總集篇】",
-  "【木棉花電影院】讓我聽見愛的歌聲",
   "機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster"
  ],
  "counts": {
-  "works": 704,
-  "seasons": 2379,
-  "unmatched": 13,
+  "works": 702,
+  "seasons": 2425,
+  "unmatched": 15,
   "guessed": 1,
-  "fuzzy": 16,
-  "moved": 30
+  "fuzzy": 5,
+  "moved": 46
  }
 }

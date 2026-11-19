@@ -1,19 +1,20 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { epTitle, fmtDur, metaLine, playlistUrl, posterOf } from '../catalog.ts';
+import { epLabel, fmtDur, metaLine, playlistUrl, posterOf } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
-import { clearHistory, inList, isWatched, markSeen, progress, toggleList, watched } from '../store.ts';
+import { clearHistory, inList, isWatched, markSeen, progress, settings, toggleList, watched } from '../store.ts';
 import type { Detail, Work } from '../types.ts';
 import { dubIndex, episodeRows, firstSpot, locate, sourceIndex, sourcesOf } from '../work.ts';
 import { pageUrl, share } from '../share.ts';
+import SpecialList from '../components/SpecialList.vue';
 
 const route = useRoute();
 const router = useRouter();
 const id = computed(() => String(route.params.id));
 const work = ref<Work | null>(null);
 const detail = ref<Detail | null>(null);
-const sel = ref({ s: 0, d: 0 }); // 正在看哪一季、哪個配音版的集數列表
+const sel = ref({ s: 0, d: 0 }); // 正在看哪一季、哪個配音版的集數列表；s = -1 是劇場版與特別篇
 const labels = ref<Record<string, string>>({}); // 片源頻道的短名稱
 
 watch(id, async (v) => {
@@ -27,7 +28,7 @@ watch(id, async (v) => {
     if (!work.value) throw new Error('missing');
     const det = await loadDetail(v);
     const at = locate(det, progress[v]?.ep ?? '');
-    sel.value = at && det.seasons[at.s].kind !== 'special' ? { s: at.s, d: at.d } : { s: firstSpot(det).s, d: 0 };
+    sel.value = at ? { s: det.seasons[at.s].kind === 'special' ? -1 : at.s, d: at.d } : { s: firstSpot(det).s, d: 0 };
     detail.value = det;
     markSeen(v, work.value.updated);
   } catch { router.replace('/'); } // 已下架，或舊版以季為單位的網址
@@ -36,13 +37,16 @@ watch(id, async (v) => {
 const resume = computed(() => (detail.value && progress[id.value] ? locate(detail.value, progress[id.value].ep) : null));
 const indexed = computed(() => detail.value?.seasons.map((x, s) => ({ x, s })) ?? []);
 const main = computed(() => indexed.value.filter(({ x }) => x.kind !== 'special'));
-const specials = computed(() => indexed.value.filter(({ x }) => x.kind === 'special' && !x.bundle));
-const bundles = computed(() => indexed.value.filter(({ x }) => x.bundle));
+const specials = computed(() => indexed.value.filter(({ x }) => x.kind === 'special')); // 劇場版與特別篇（含合集）
 const season = computed(() => detail.value?.seasons[sel.value.s]);
-const rows = computed(() => (season.value ? episodeRows(season.value, sel.value.d) : []));
+const showSp = computed(() => sel.value.s === -1 || season.value?.kind === 'special');
+const options = computed(() => [...main.value.map((m) => ({ s: m.s, name: m.x.name })), ...(specials.value.length ? [{ s: -1, name: '劇場版與特別篇' }] : [])]);
+const rows = computed(() => { const r = season.value ? episodeRows(season.value, sel.value.d) : []; return settings.newestFirst ? [...r].reverse() : r; });
+const count = computed(() => rows.value.filter((r) => r.ep).length);
 
 // 換季時沿用目前的片源與配音版，那一季沒有就用原聲
 function pickSeason(s: number) {
+  if (s < 0) { sel.value = { s, d: 0 }; return; }
   const cur = season.value?.dubs[sel.value.d];
   sel.value = { s, d: dubIndex(detail.value!.seasons[s], cur?.lang, cur?.ch) };
 }
@@ -88,53 +92,30 @@ const enc = encodeURIComponent;
         <button v-if="hasHistory" class="btn ghost" @click="wipe">清除觀看紀錄</button>
       </div>
 
-      <template v-if="season && season.kind !== 'special'">
-        <div class="pickers">
-          <h2>集數</h2>
-          <select v-if="main.length > 1" :value="sel.s" aria-label="選擇季" @change="pickSeason(Number(($event.target as HTMLSelectElement).value))">
-            <option v-for="m in main" :key="m.s" :value="m.s">{{ m.x.name }}{{ m.x.kind === 'collection' ? '（合輯）' : '' }}</option>
-          </select>
+      <div class="pickers">
+        <h2>{{ showSp && options.length < 2 ? '劇場版與特別篇' : '集數' }}</h2>
+        <select v-if="options.length > 1" :value="showSp ? -1 : sel.s" aria-label="選擇季" @change="pickSeason(Number(($event.target as HTMLSelectElement).value))">
+          <option v-for="o in options" :key="o.s" :value="o.s">{{ o.name }}</option>
+        </select>
+        <template v-if="season && !showSp">
           <select v-if="sources.length > 1" :value="season.dubs[sel.d].ch" aria-label="選擇片源" @change="pickSource(($event.target as HTMLSelectElement).value)">
             <option v-for="c in sources" :key="c" :value="c">{{ labels[c] ?? c }}</option>
           </select>
           <select v-if="dubOpts.length > 1" v-model.number="sel.d" aria-label="選擇配音">
             <option v-for="o in dubOpts" :key="o.i" :value="o.i">{{ o.d.lang }}配音</option>
           </select>
-        </div>
+        </template>
+      </div>
+      <SpecialList v-if="showSp" :id="work.id" :items="specials" :labels="labels" :cur="progress[work.id]?.ep" />
+      <template v-else-if="season">
+        <div class="ep-bar"><span>共 {{ count }} 集</span><button class="link" :aria-label="`排序：${settings.newestFirst ? '新到舊' : '舊到新'}，點一下切換`" @click="settings.newestFirst = !settings.newestFirst">{{ settings.newestFirst ? '新到舊' : '舊到新' }} ⇅</button></div>
         <ol class="eps">
           <li v-for="r in rows" :key="r.n">
             <RouterLink v-if="r.ep" :to="`/watch/${enc(work.id)}/${r.ep.id}`" :class="{ cur: r.ep.id === progress[work.id]?.ep, seen: isWatched(work.id, r.ep.id) }">
-              <b>{{ r.n }}</b><span :title="epTitle(r.ep.title)">{{ epTitle(r.ep.title, season.name) }}</span>
+              <b>{{ r.n }}</b><span :title="r.ep.title">{{ epLabel(r.ep, season.name) }}</span>
               <small><span v-if="isWatched(work.id, r.ep.id)" class="tick" aria-label="看過">✓</span>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · 在 YouTube 觀看</template></small>
             </RouterLink>
             <div v-else class="none"><b>{{ r.n }}</b><span>無此配音</span></div>
-          </li>
-        </ol>
-      </template>
-
-      <template v-if="bundles.length">
-        <h2>合集<small class="h-note">一支影片連看好幾集，補上單集沒有的部分</small></h2>
-        <ol class="eps">
-          <li v-for="b in bundles" :key="b.s">
-            <RouterLink :to="`/watch/${enc(work.id)}/${b.x.dubs[0].episodes[0].id}`" :class="{ seen: isWatched(work.id, b.x.dubs[0].episodes[0].id) }">
-              <b>▶</b><span :title="b.x.dubs[0].episodes[0].title">{{ b.x.name }}</span>
-              <small><span v-if="isWatched(work.id, b.x.dubs[0].episodes[0].id)" class="tick" aria-label="看過">✓</span>{{ fmtDur(b.x.dubs[0].episodes[0].sec) }}<template v-if="sourcesOf(b.x).length > 1 || main.length"> · {{ labels[b.x.dubs[0].ch ?? ''] }}</template><template v-if="b.x.dubs[0].episodes[0].ext"> · 在 YouTube 觀看</template></small>
-            </RouterLink>
-          </li>
-        </ol>
-      </template>
-
-      <template v-if="specials.length">
-        <h2>劇場版／特別篇</h2>
-        <ol class="eps">
-          <li v-for="sp in specials" :key="sp.s">
-            <RouterLink :to="`/watch/${enc(work.id)}/${sp.x.dubs[0].episodes[0].id}`">
-              <b>▶</b><span>{{ sp.x.name }}</span>
-              <small>{{ fmtDur(sp.x.dubs[0].episodes[0].sec) }}<template v-if="sp.x.dubs.length > 1"> · {{ sp.x.dubs[0].lang }}<template v-if="sourcesOf(sp.x).length > 1"> · {{ labels[sp.x.dubs[0].ch ?? ''] }}</template></template></small>
-            </RouterLink>
-            <RouterLink v-for="d in sp.x.dubs.slice(1)" :key="d.lang" class="alt-dub" :to="`/watch/${enc(work.id)}/${d.episodes[0].id}`">
-              <b></b><span>{{ d.lang }}配音<template v-if="sourcesOf(sp.x).length > 1"> · {{ labels[d.ch ?? ''] }}</template></span><small>{{ fmtDur(d.episodes[0].sec) }}</small>
-            </RouterLink>
           </li>
         </ol>
       </template>

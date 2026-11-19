@@ -99,6 +99,9 @@ export function metaLine(s: Work): string {
   return parts.filter(Boolean).join(' · ');
 }
 
+/** 集數列表上的名稱：同步時取出的副標；沒有副標就寫「第 n 集」 */
+export const epLabel = (ep: { n: number; sub?: string; title: string }, name?: string): string => (ep.sub ?? epTitle(ep.title, name)) || `第 ${ep.n} 集`;
+
 /** 集標題去掉字幕標示、頻道標記與「｜」之後的宣傳尾巴；給了季名就再去掉開頭的配音標記與重複的作品名（集數列表用） */
 export function epTitle(t: string, name?: string): string {
   let s = t.replace(/[(（][^)）]*(字幕|原聲|配音)[^)）]*[)）]/g, '').replace(/【Ani-One[^】]*】/g, '').replace(/\s*[｜|].*$/, '').trim();

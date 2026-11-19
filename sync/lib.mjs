@@ -136,14 +136,22 @@ export function classifyVideo(v, cfg, ch, members, { standalone = false } = {}) 
 }
 
 /** 集數：EP12、#12、第12集；「第01-04話」這種合併集取第一個數字；解析不到回 null */
+const CJK_EP = (s) => { const m = /^([一二三四五六七八九])?(十)?([一二三四五六七八九])?$/.exec(s); if (!m || !s) return null; return (m[2] ? (m[1] ? CJK_NUM[m[1]] : 1) * 10 : 0) + (m[3] ? CJK_NUM[m[3]] : m[2] ? 0 : CJK_NUM[m[1]] ?? 0); };
 export function episodeNumber(title) {
-  const m = /\bEP\.?\s*(\d{1,4})\b/i.exec(title) || /#\s*(\d{1,4})\b/.exec(title) || /第\s*(\d{1,4})(?:\s*[-~～]\s*\d{1,4})?\s*[集话話]/.exec(title);
+  const c = /第\s*([一二三四五六七八九十]{1,3})\s*[集话話]/.exec(title);
+  if (c && CJK_EP(c[1])) return CJK_EP(c[1]);
+  const m = /\bEP\.?\s*(\d{1,4})\b/i.exec(title) || /#\s*(\d{1,4})\b/.exec(title) || /第\s*(\d{1,4})(?:\s*[-~～]\s*\d{1,4})?\s*[集话話回]/.exec(title);
   return m ? Number(m[1]) : null;
 }
 
-/** 依集數排序；全部解析得到才用集數，否則維持清單順序 */
+/** 季清單裡沒有集數、標題像劇場版／OVA／特別篇／總集篇的影片：移出季，改當單篇（CONTEXT.md「劇場版與特別篇」） */
+export const isExtra = (title) => episodeNumber(title) == null && /劇場版|剧场版|電影版|电影版|\bOVA\b|\bOAD\b|特別篇|特别篇|總集篇|总集篇|特別上映|特别上映|\bSP\b/i.test(title);
+
+/**
+ * 季裡的集依集數排：有集數的照集數；沒有集數的照上架時間接在後面（整份都沒有集數時，「新的在前」的清單也會排對）。
+ * 「第07-11話」合併版：涵蓋的每一集都另有單獨上傳，就是重複內容，拿掉
+ */
 export function sortEpisodes(all) {
-  // 「第07-11話」合併版：涵蓋的每一集都另有單獨上傳，就是重複內容，拿掉
   const single = new Set(all.map((e) => /第\s*(\d{1,4})\s*[集话話]/.exec(e.title)?.[1]).filter(Boolean).map(Number));
   const eps = all.filter((e) => {
     const r = /第\s*(\d{1,4})\s*[-~～]\s*(\d{1,4})\s*[集话話]/.exec(e.title);
@@ -151,11 +159,11 @@ export function sortEpisodes(all) {
     for (let n = Number(r[1]); n <= Number(r[2]); n++) if (!single.has(n)) return true;
     return false;
   });
-  const nums = eps.map((e) => episodeNumber(e.title));
-  if (nums.every((n) => n != null) && new Set(nums).size === nums.length) {
-    return eps.map((e, i) => ({ ...e, n: nums[i] })).sort((a, b) => a.n - b.n);
-  }
-  return eps.map((e, i) => ({ ...e, n: i + 1 }));
+  const withN = eps.map((e, i) => ({ ...e, n: episodeNumber(e.title), i }));
+  const numbered = withN.filter((e) => e.n != null).sort((a, b) => a.n - b.n || a.i - b.i);
+  const rest = withN.filter((e) => e.n == null).sort((a, b) => (a.at && b.at ? a.at.localeCompare(b.at) : 0) || a.i - b.i);
+  let last = numbered.at(-1)?.n ?? 0;
+  return [...numbered, ...rest.map((e) => ({ ...e, n: ++last }))].map(({ i, ...e }) => e);
 }
 
 /**
@@ -165,6 +173,7 @@ export function sortEpisodes(all) {
 export function buildSeasons(playlists, videos, cfg, ch, members) {
   const out = [];
   const deny = re(cfg.titleDeny);
+  const extras = [], seen = new Set();
   for (const p of playlists) {
     if (deny.test(p.title)) continue;
     const eps = [];
@@ -172,15 +181,24 @@ export function buildSeasons(playlists, videos, cfg, ch, members) {
       const v = videos.get(id);
       if (!v) continue;
       const c = classifyVideo(v, cfg, ch, members);
-      if (c.ok) eps.push({ id, title: v.title, sec: v.sec, views: v.views, at: v.at, ext: c.ext });
+      if (!c.ok) continue;
+      eps.push({ id, title: v.title, sec: v.sec, views: v.views, at: v.at, ext: c.ext });
     }
     if (!eps.length) continue;
+    // 季清單裡混了劇場版、OVA（有正片集數的才算混；整份都是 OVA 的本身就是一季）→ 移出來當單篇
+    if (eps.some((e) => !isExtra(e.title))) {
+      for (const e of eps.filter((x) => isExtra(x.title))) {
+        if (!seen.has(e.id)) extras.push({ playlistId: `v-${e.id}`, rawTitle: e.title, single: true, episodes: [{ ...e, n: 1 }] });
+        seen.add(e.id);
+      }
+      eps.splice(0, eps.length, ...eps.filter((x) => !isExtra(x.title)));
+    }
     const works = new Set(eps.map((e) => /《(.+?)》/.exec(e.title)?.[1]).filter(Boolean));
     if (works.size > 2) continue; // 混合清單（多部作品的精選）
     // members：清單裡被當成會員限定扣掉的集數，作品頁用來提示「其餘為會員限定」
     out.push({ playlistId: p.id, rawTitle: p.title, desc: p.desc ?? '', episodes: sortEpisodes(eps), members: p.videoIds.filter((id) => members.has(id)).length });
   }
-  return out;
+  return [...out, ...extras]; // 季清單裡的劇場版、OVA 當單篇，跟著作品名歸到所屬作品
 }
 
 /**
@@ -304,25 +322,30 @@ export function pickBundles(seasons) {
 // ── 作品：同一片源頻道內，標題去掉季數與配音標記後相同的季合成一部（docs/adr/0003）──
 
 // 季數寫法：第二季、S2、Season 2、2nd Season，以及接在中文後面的羅馬數字（「約會大作戰Ⅴ」「約會大作戰III」）
-const SEASON_NO = /第\s*([一二三四五六七八九十\d]+)\s*季|(?<![A-Za-z])S(\d+)(?!\d)|Season\s*(\d+)|(\d+)(?:st|nd|rd|th)\s*Season|(?<=[^\x00-\x7F]|\s)(II|III|IV|V|VI|Ⅱ|Ⅲ|Ⅳ|Ⅴ|Ⅵ)$/i;
+const SEASON_NO = /第\s*([一二三四五六七八九十\d]+)\s*季|(?<![A-Za-z])S(\d+)(?!\d)|Season\s*(\d+)|(\d+)(?:st|nd|rd|th)\s*Season|(?<=[^\x00-\x7F]|\s)(II|III|IV|V|VI|Ⅱ|Ⅲ|Ⅳ|Ⅴ|Ⅵ)$|(?<![\p{L}\d])([一二三四五六七八九十]|\d+)\s*期(?!間|限)/iu;
 const ROMAN = { II: 2, III: 3, IV: 4, V: 5, VI: 6, Ⅱ: 2, Ⅲ: 3, Ⅳ: 4, Ⅴ: 5, Ⅵ: 6 };
 const COLLECTION = /全集|全部集數|[(（]全[)）]|系列|S\d+\s*[-~+＋]\s*S?\d+|第\s*\d+\s*[+＋]\s*\d+\s*季/i;
+
+/** 同一集：同一支影片，或集數相同（沒有集數的只看影片） */
+const sameEp = (h, e) => h.id === e.id || (h.n != null && h.n === e.n);
 
 /** 季名 → 季數（沒寫回 null）；「S1-S3」這種範圍取第一個數字 */
 export function seasonNo(name) {
   const m = SEASON_NO.exec(name);
   if (!m) return null;
   if (m[5]) return ROMAN[m[5].toUpperCase()];
-  const v = m[1] ?? m[2] ?? m[3] ?? m[4];
+  const v = m[1] ?? m[2] ?? m[3] ?? m[4] ?? m[6];
   return CJK_NUM[v] ?? Number(v);
 }
 
 /** 季名 → 作品名：去掉季數、範圍、「系列」等尾巴 */
 export function workBase(name) {
   return name
+    .replace(/\s*[(（]\s*(?:S\d+|第\s*[一二三四五六七八九十\d]+\s*季)\s*[)）]\s*$/i, '')
     .replace(/\s*[(（]?第\s*[一二三四五六七八九十\d]+(?:\s*[+＋]\s*\d+)?\s*季.*$/, '')
     .replace(/\s*(?<![A-Za-z])(?:S\d+(?:\s*[-~+＋]\s*S?\d+)?|Season\s*\d+|\d+(?:st|nd|rd|th)\s*Season|Part\s*\d+)(?!\d).*$/i, '')
     .replace(/(?<=[^\x00-\x7F]|\s)(?:II|III|IV|V|VI|Ⅱ|Ⅲ|Ⅳ|Ⅴ|Ⅵ)$/, '')
+    .replace(/\s*(?<![\p{L}\d])(?:[一二三四五六七八九十]|\d+)\s*期$/u, '')
     .replace(/系列$/, '')
     .replace(/[\s:：\-—～~]+$/, '')
     .trim() || name;
@@ -338,6 +361,29 @@ export function bigrams(s) {
 export const dice = (a, b) => { let n = 0; for (const x of a) if (b.has(x)) n++; return (2 * n) / (a.size + b.size || 1); };
 const FUZZY = 0.8;
 
+/**
+ * 季名的「第 N 季」與副標（CONTEXT.md「季」）：季數從名稱的季數標記來；副標是名稱扣掉作品名與季數標記後剩下的，
+ * 剩下的跟作品名差不多（譯名寫法不同、Dice ≥ 0.8）就當作沒有副標。沒有季數也沒有副標的就是第 1 季
+ */
+export function seasonLabel(name, base) {
+  let no = seasonNo(name);
+  let sub = name.replace(/【([^】]*)】/g, (m, x) => (TAG.test(x) ? ' ' : m)).replace(/(?<![A-Za-z])S\d+\s*[-~～+＋]\s*S?\d+|第\s*\d+\s*[+＋]\s*\d+\s*季|全部集數|全集數?|所有集數|系列$/gi, ' ').replace(SEASON_NO, ' ').replace(/[(（]\s*[)）]|[(（]\s*S\d+\s*[)）]/gi, ' ');
+  const wb = workBase(name), similar = bigrams(wb).size >= 2 && dice(bigrams(wb), bigrams(base)) >= FUZZY; // 譯名寫法不同（「SPY x FAMILY」）
+  // 作品名整段、譯名寫法不同的（「SPY x FAMILY」）、以及作品名被括號符號隔開的各段（「魔導少年-最終章(妖精的尾巴)」）都去掉
+  const pieces = base.split(/[()（）\-—\s:：・·|｜]+/).filter((p) => p.length >= 2 && p !== base);
+  for (const v of [base, toSimp(base), toTrad(base), similar && wb, ...pieces]) if (v && v.length >= 2) sub = sub.split(v).join(' ');
+  sub = sub.replace(/[(（]\s*(?:OVA|OAD|TV版?)\s*[)）]/gi, ' ').replace(/\s+/g, ' ').replace(/^[\s\-—:：~～・·•|｜(（]+|[\s\-—:：~～・·•|｜)）]+$/g, '').trim();
+  if (sub.split(/[(（]/).length !== sub.split(/[)）]/).length) sub = sub.replace(/[(（)）]/g, '').trim();
+  const lead = no == null && /^(?:(\d{1,2})|(II|III|IV|V|VI|Ⅱ|Ⅲ|Ⅳ|Ⅴ|Ⅵ)|(\d)(?:st|nd|rd|th))(?=$|[\s\-—:：~～])/i.exec(sub);
+  if (lead) { no = lead[1] ? Number(lead[1]) : lead[2] ? ROMAN[lead[2].toUpperCase()] : Number(lead[3]); sub = lead[3] ? sub : sub.slice(lead[0].length).replace(/^[\s\-—:：~～]+/, '').trim(); }
+  if (!norm(sub) || /^(全|全集|全部|合集|合輯)$/.test(sub) || (bigrams(sub).size >= 2 && dice(bigrams(sub), bigrams(base)) >= FUZZY)) sub = '';
+  if (no == null && !sub) no = 1;
+  return { no, sub };
+}
+
+/** 一集標題寫的季數（「進擊的巨人S2 第01話」「(S2) 第26話」「第二季」「二期」）；沒寫回 null */
+export const episodeSeason = (title) => seasonNo(String(title ?? "").replace(/[｜|].*$/, ''));
+
 /** 清單標題看得出是多季合輯 */
 export const isCollection = (raw) => COLLECTION.test(raw);
 
@@ -346,14 +392,15 @@ export const isCollection = (raw) => COLLECTION.test(raw);
  * 最後一個不晚於它的有號季後面；兩者都沒有的當第一季。同位置再依頻道清單順序。
  */
 export function orderSeasons(list) {
-  const byNo = (a, b) => (a.no ?? 1) - (b.no ?? 1) || a.order - b.order;
-  const out = list.filter((x) => x.no != null || x.when === Infinity).sort(byNo);
+  const byNo = (a, b) => a.no - b.no || a.order - b.order;
+  const out = list.filter((x) => x.no != null).sort(byNo);
   for (const f of list.filter((x) => x.no == null && x.when !== Infinity).sort((a, b) => a.when - b.when || a.order - b.order)) {
     let at = 0;
     out.forEach((x, i) => { if (x.when <= f.when) at = i + 1; });
     out.splice(at, 0, f);
   }
-  return out.map(({ when, ...x }) => ({ ...x, no: x.no ?? 1 }));
+  // 沒季數也沒首播時間的排最後（照頻道清單順序）
+  return [...out, ...list.filter((x) => x.no == null && x.when === Infinity).sort((a, b) => a.order - b.order)].map(({ when, ...x }) => x);
 }
 
 /**
@@ -377,7 +424,7 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
     return works.get(key);
   };
   const addTo = (w, it, special) => {
-    const gk = it.bundle ? `bd:${it.id}` : (special ? 'sp:' : '') + norm(it.name); // 合集一支一份，不合併
+    const gk = it.bundle ? `bd:${it.id}` : special ? `sp:${norm(String(it.rawTitle ?? it.name).replace(/【([^】]*)】/g, (m, x) => (TAG.test(x) ? '' : m)).replace(/[(（][^)）]*(字幕|配音|原聲|雙語)[^)）]*[)）]|[｜|]\s*(Muse|Ani-One|腾讯|阅文|曼迪)[^｜|]*$/g, ''))}` : norm(it.name); // 合集一支一份；單篇同標題（去掉語言標記）的才是配音版
     const g = w.groups.get(gk) ?? { name: it.name, special, bundle: it.bundle, coll: !special && isCollection(it.rawTitle), dubs: new Map(), order: it.order };
     const dk = `${it.channel?.key ?? ''}|${it.lang}`; // 片源＋配音
     const cur = g.dubs.get(dk);
@@ -396,7 +443,10 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
   for (const it of singles) {
     const forced = override[it.id];
     // 合集的名稱常是簡稱（「聖者無雙」對「聖者無雙～上班族的異世界生存之道」），也接受作品名以它開頭的
-    const find = (name) => keys().find((w) => fits(w, name)) ?? (it.bundle && norm(name).length >= 3 ? keys().find((w) => w.key.startsWith(norm(name))) : undefined);
+    // 都對不上時，名稱去掉集數、【】、劇場版／總集篇字樣後跟作品名相似度 ≥ 0.8 也算（頻道少打一個字：「惑星公主蜥蜴騎士」）
+    const core = (name) => bigrams(name.replace(/【[^】]*】|[(（][^)）]*[)）]/g, ' ').replace(/第\s*[\d.]+\s*[話话集回]|總集篇|总集篇|特別篇|特别篇|劇場版|剧场版|電影版?|\bOVA\b|\bOAD\b/gi, ' '));
+    const fuzzy = (name) => keys().find((w) => w.key.length >= 3 && dice(core(name), bigrams(w.base)) >= FUZZY);
+    const find = (name) => keys().find((w) => fits(w, name)) ?? (it.bundle && norm(name).length >= 3 ? keys().find((w) => w.key.startsWith(norm(name))) : undefined) ?? fuzzy(name);
     const w = forced ? workOf(forced) : (it.bundle ? it.bundle.names.map(find).find(Boolean) : find(it.name)) ?? workOf(it.bundle ? workBase(it.name) : it.name);
     addTo(w, it, true);
   }
@@ -484,36 +534,112 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
   const seasonOwner = new Map();
   out.forEach((w) => w.groups.forEach((g) => { if (!g.special && !g.coll) ids(g).forEach((e) => seasonOwner.set(e, w.key)); }));
   const crossWork = (key, g) => { const all = [...ids(g)]; return all.filter((e) => seasonOwner.has(e) && seasonOwner.get(e) !== key).length * 2 >= all.length; };
+  // OVA、劇場版、特別篇、總集篇形式的清單不是季，歸到劇場版與特別篇（CONTEXT.md）
+  const extraLike = (g) => [...g.dubs.values()].every((d) => ['MOVIE', 'OVA', 'SPECIAL'].includes(d.a?.format)) || /\bOVA\b|\bOAD\b|劇場版|剧场版|特別篇|特别篇|總集篇|总集篇|番外/i.test(g.name);
   return out.map(({ key, base, groups }) => {
+    for (const g of groups.values()) if (!g.special && !g.coll && extraLike(g)) g.special = true;
     let gs = [...groups.values()].filter((g) => !g.special && !(g.coll && crossWork(key, g))).map((g) => ({ ...g, ids: ids(g) }));
     for (const g of gs) if (!g.coll) g.coll = gs.some((o) => o !== g && o.ids.size < g.ids.size && [...o.ids].every((x) => g.ids.has(x)));
-    // 合輯開頭那段單季都沒有的集，通常是頻道沒另外開清單的第一季（無職、進擊的巨人）：拆成一季，跟其他季一樣能選
-    const inSeasons = new Set(gs.filter((g) => !g.coll).flatMap((g) => [...g.ids]));
-    const lead = (d) => { const i = d.episodes.findIndex((e) => inSeasons.has(e.id)); return i < 0 ? d.episodes.length : i; };
-    // 開頭就是別季的集、或整份都沒有別季的集不拆；有好幾份合輯時取開頭那段最長的（有的合輯缺集，只拆得出半季）
-    const cut = gs.filter((g) => g.coll).map((g) => {
-      const orig = [...g.dubs.values()].find((d) => d.original) ?? [...g.dubs.values()][0];
-      return { g, k: lead(orig), len: orig.episodes.length };
-    }).filter((c) => c.k > 0 && c.k < c.len).sort((a, b) => b.k - a.k || b.g.dubs.size - a.g.dubs.size)[0];
-    if (cut) {
-      const { g, k } = cut, dubs = new Map();
-      // 其他配音版也取開頭那段；整份都沒有別季的集、又比原聲那段長很多的（國語版全集）留在合輯
-      for (const [l, d] of g.dubs) { const n = lead(d); if (n && (n < d.episodes.length || n <= k + 2)) dubs.set(l, { ...d, episodes: d.episodes.slice(0, n) }); }
-      const no = seasonNo(g.name) ?? 1;
-      gs.push({ name: no === 1 ? base : `${base} 第${no}季`, special: false, coll: false, dubs, order: g.order - 0.5, ids: ids({ dubs }) }); // 排在原合輯前面
+    // 合輯（多季放在同一個清單）拆進各季，觀看者看不到合輯（CONTEXT.md「合輯」）：
+    // 每一集看標題的季數標記，沒有就沿用前一集的；整份都沒有標記時，集數又從 1 開始就是下一季。
+    // 那一季已經有同片源同配音的清單就不重複放；沒有的補成配音版，或新增一季。判斷不出季的集自成一組
+    const noOf = (g) => seasonLabel(g.name, base).no;
+    const plain = gs.filter((g) => !g.coll);
+    // 集數 → 哪幾季有這一集（日語第 1 季是第 1-28 集 → 國語合輯的第 1-28 集也歸第 1 季）；沒季數的季用名稱當代號
+    const nClaims = new Map();
+    for (const p of plain) { const no = noOf(p) ?? p.name; for (const d of p.dubs.values()) for (const e of d.episodes) nClaims.set(e.n, new Set([...(nClaims.get(e.n) ?? []), no])); }
+    const minClaimed = Math.min(...nClaims.keys());
+    const hasFirst = plain.some((p) => noOf(p) === 1);
+    // 沒有第 1 季、集數又比已知各季都小 → 第 1 季（葬送的芙莉蓮只有第 2 季的清單，合輯的第 1-28 集）
+    const byN = (n) => (nClaims.get(n)?.size === 1 ? [...nClaims.get(n)][0] : nClaims.size && !hasFirst && n < minClaimed ? 1 : null);
+    for (const g of gs.filter((x) => x.coll)) {
+      for (const [dk, d0] of g.dubs) {
+        // 照上架時間走（集數排序會讓各季的集交錯：1、1、2、2…，沿用前一集的季數就會錯）
+        const d = { ...d0, episodes: [...d0.episodes].sort((a, b) => (a.at && b.at ? a.at.localeCompare(b.at) : 0)) };
+        const marks = d.episodes.map((e) => episodeSeason(e.title));
+        const first = marks.find((m) => m != null);
+        const parts = new Map(); // 季數（null = 判斷不出）→ 集
+        // 沒有標記時看集數重複：第二次出現的第 1 集屬於第 2 季（跟排序無關）；都不重複的判斷不出季
+        const nums = d.episodes.map((e) => e.n).filter((n) => n != null);
+        const seen = new Map(), repeats = first == null && nums.length === d.episodes.length && new Set(nums).size < nums.length;
+        let cur = first != null ? 1 : null;
+        // 順序：標題的季數標記 > 已知季的集數範圍（那季同集數已是別支影片就不算）> 沿用前一集 > 集數重複 > 判斷不出
+        const claim = (e) => {
+          const no = byN(e.n);
+          const p = no == null ? null : plain.find((x) => (typeof no === 'string' ? x.name === no : noOf(x) === no));
+          return p && [...p.dubs.values()].some((x) => x.episodes.some((h) => h.n === e.n && h.id !== e.id) && x === p.dubs.get(dk)) ? null : no;
+        };
+        d.episodes.forEach((e, i) => {
+          const c = marks[i] == null ? claim(e) : null;
+          if (marks[i] != null) cur = marks[i];
+          else if (c != null) cur = c;
+          else if (repeats) { seen.set(e.n, (seen.get(e.n) ?? 0) + 1); cur = seen.get(e.n); }
+          else if (first == null) cur = null;
+          parts.set(cur, [...(parts.get(cur) ?? []), e]);
+        });
+        for (const [no, eps] of parts) {
+          const sorted = sortEpisodes(eps);
+          const target = no == null ? null : plain.find((p) => (typeof no === 'string' ? p.name === no : noOf(p) === no));
+          if (target) {
+            const had = target.dubs.get(dk), add = sorted.filter((e) => !(had?.episodes ?? []).some((h) => sameEp(h, e)));
+            if (add.length) target.dubs.set(dk, had ? { ...had, episodes: sortEpisodes([...had.episodes, ...add]) } : { ...d, episodes: sorted });
+            target.ids = ids(target);
+            continue;
+          }
+          const sub = seasonLabel(g.name, base).sub;
+          // 名稱沒副標的合輯（「某作(全部集數)」）判斷不出季的集是本傳：有第 1 季就併進去，沒有就成為第 1 季
+          const first1 = no == null && !sub ? plain.find((p) => !p.loose && noOf(p) === 1) : null;
+          if (first1) {
+            const had = first1.dubs.get(dk), add = sorted.filter((e) => !(had?.episodes ?? []).some((h) => sameEp(h, e)));
+            if (add.length) first1.dubs.set(dk, had ? { ...had, episodes: sortEpisodes([...had.episodes, ...add]) } : { ...d, episodes: sorted });
+            first1.ids = ids(first1);
+            continue;
+          }
+          const main = no == null && !sub;
+          const name = main ? `${base} 第1季` : no == null ? (sub ? g.name : `${base} 全部集數`) : typeof no === 'string' ? no : `${base} 第${no}季`;
+          const made = { name, special: false, coll: false, loose: no == null && !main, dubs: new Map([[dk, { ...d, episodes: sorted }]]), order: g.order, ids: new Set(sorted.map((e) => e.id)) };
+          if (no == null && [...made.ids].every((x) => plain.some((p) => p.ids.has(x)))) continue; // 全都在別季裡了
+          const same = plain.find((p) => p.name === name); // 好幾份合輯拆出的同一組（同一季、或都判斷不出季）合在一起
+          if (!same) { plain.push(made); continue; }
+          const had = same.dubs.get(dk);
+          same.dubs.set(dk, had ? { ...had, episodes: sortEpisodes([...had.episodes, ...sorted.filter((e) => !had.episodes.some((h) => h.id === e.id))]) } : { ...d, episodes: sorted });
+          same.ids = ids(same);
+        }
+      }
     }
-    const kept = new Set(gs);
-    for (const g of gs.filter((x) => x.coll).sort((x, y) => x.ids.size - y.ids.size)) {
-      const others = new Set([...kept].filter((o) => o !== g).flatMap((o) => [...o.ids]));
-      // 九成以上的集在別的清單都有（重複上傳的合輯常差一兩支）就不列
-      if (kept.size > 1 && [...g.ids].filter((x) => others.has(x)).length >= g.ids.size * 0.9) kept.delete(g);
+    // 保底：合輯裡還有影片沒出現在任何一季（同集數被別支影片佔了），放進「全部集數」，不丟資料
+    for (const g of gs.filter((x) => x.coll)) for (const [dk, d] of g.dubs) {
+      const left = d.episodes.filter((e) => !plain.some((p) => p.ids.has(e.id)));
+      if (!left.length) continue;
+      const name = `${base} 全部集數`, loose = plain.find((p) => p.name === name);
+      if (!loose) { plain.push({ name, special: false, coll: false, loose: true, dubs: new Map([[dk, { ...d, episodes: sortEpisodes(left) }]]), order: g.order, ids: new Set(left.map((e) => e.id)) }); continue; }
+      const had = loose.dubs.get(dk);
+      loose.dubs.set(dk, had ? { ...had, episodes: sortEpisodes([...had.episodes, ...left.filter((e) => !had.episodes.some((h) => h.id === e.id))]) } : { ...d, episodes: sortEpisodes(left) });
+      loose.ids = ids(loose);
     }
-    gs = [...kept];
+    // 同一部作品裡季數相同的季合成一季：片源或配音不同就並列，同片源同配音的把集合在一起（同一集不重複）
+    const hasOrig = (g) => [...g.dubs.values()].some((d) => d.original);
+    for (const g of [...plain].sort((a, b) => hasOrig(b) - hasOrig(a))) { // 原聲那份當主體（季名、作品名用它的）
+      const no = g.loose ? null : noOf(g);
+      if (no == null || !plain.includes(g)) continue;
+      const subOf = (x) => norm(seasonLabel(x.name, base).sub);
+      for (const o of plain.filter((x) => x !== g && !x.loose && noOf(x) === no && subOf(x) === subOf(g))) { // 「第 2 季」和「第 2 季 act2」是不同季
+        for (const [dk, d] of o.dubs) {
+          const had = g.dubs.get(dk);
+          g.dubs.set(dk, had ? { ...had, episodes: sortEpisodes([...had.episodes, ...d.episodes.filter((e) => !had.episodes.some((h) => sameEp(h, e)))]) } : d);
+        }
+        g.order = Math.min(g.order, o.order);
+        plain.splice(plain.indexOf(o), 1);
+      }
+      g.ids = ids(g);
+    }
+    const kept = new Set(plain);
+    gs = plain;
     const aidOf = (g) => { const a = new Set([...g.dubs.values()].map((d) => d.aid)); return a.size === 1 ? [...a][0] : null; };
     for (const g of [...gs]) {
-      if (g.coll || !kept.has(g) || !aidOf(g)) continue;
+      if (!kept.has(g) || !aidOf(g)) continue;
       for (const o of gs) {
-        if (o === g || o.coll || !kept.has(o) || aidOf(o) !== aidOf(g) || (seasonNo(o.name) ?? 1) !== (seasonNo(g.name) ?? 1)) continue;
+        if (o === g || !kept.has(o) || aidOf(o) !== aidOf(g) || noOf(o) !== noOf(g)) continue;
         if ([...o.dubs.keys()].some((l) => g.dubs.has(l))) continue;
         const [main, extra] = [...o.dubs.values()].some((d) => d.original) ? [o, g] : [g, o];
         for (const [l, d] of extra.dubs) main.dubs.set(l, d);
@@ -522,13 +648,63 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
       }
     }
     const seasons = orderSeasons([...kept].map((g) => ({
-      name: g.name, kind: g.coll ? 'collection' : 'season', no: seasonNo(g.name), order: g.order, dubs: [...g.dubs.values()],
+      name: g.name, kind: 'season', no: g.loose ? null : seasonLabel(g.name, base).no, order: g.order, dubs: [...g.dubs.values()], ...(g.loose && { loose: true }),
       when: Math.min(...[...g.dubs.values()].map((d) => d.when ?? Infinity)),
     })));
     const specials = [...groups.values()].filter((g) => g.special).sort((a, b) => a.order - b.order)
       .map((g) => ({ name: g.name, kind: 'special', no: Infinity, order: g.order, dubs: [...g.dubs.values()], ...(g.bundle && { bundle: g.bundle }) }));
     return { key, base, seasons: [...seasons, ...specials] };
   });
+}
+
+// ── 集的副標：作品頁顯示「第 n 集」＋副標（CONTEXT.md「季」）──
+const META = /Muse木棉花|木棉花|^\s*Muse\s*$|腾讯视频|騰訊視頻|阅文动漫|閱文動畫|曼迪|Mighty TV|Ani-One|官方Official|MULTI ?SUB|ENG SUB|^\s*(动漫|動漫|動畫 ?線上看|線上看)\s*$|新番上[线線]/i;
+const TAG = /会员|會員|搶先|抢先|字幕|配音|原聲|原声|雙語|双语|日語|國語|粵語|日语|国语|粤语|中日|限時|限时|Ani-One|免費|免费/;
+
+/**
+ * 一季（一個配音版）每一集的副標：去掉頻道與語言標記、《作品名》、作品名、英文片名、集數與季數，
+ * 再去掉同一季每一集都一樣的開頭與結尾（片名、標語）。names：作品名與季名（繁簡都比對）
+ */
+export function episodeSubs(titles, names = [], cn = false) {
+  const variants = [...new Set(names.filter(Boolean).flatMap((n) => [n, toSimp(n), toTrad(n)]))].sort((a, b) => b.length - a.length);
+  const stripHead = (seg) => { // 只去掉每一段開頭的作品名（「暴走哈姆醬大量出現！」裡的不動）；頻道寫的作品名較短時，去掉 6 字以上的前段
+    let x = seg.trim();
+    for (let again = true; again;) {
+      again = false;
+      for (const v of variants) {
+        if (v.length >= 2 && x.startsWith(v)) { x = x.slice(v.length).trim(); again = true; break; }
+        let k = 0; while (k < v.length && x[k] === v[k]) k++;
+        if (k >= 6 && /^[\s～~:：\-—、，,]|^\d/.test(x.slice(k))) { x = x.slice(k).trim(); again = true; break; }
+      }
+    }
+    return x.replace(/^\d{2,4}(?=\D)/, '').trim(); // 開頭的「001」是集數
+  };
+  const one = (raw) => {
+    let s = raw.replace(/[\p{Extended_Pictographic}\u{FE0F}\u200D]/gu, '')
+      .replace(/【([^】]*)】/g, (m, x) => (TAG.test(x) ? ' ' : m)).replace(/[(（][^)）]*[)）]/g, (m) => (TAG.test(m) ? ' ' : m)); // 先拿掉標籤，免得被「|」切斷
+    s = s.split(/\s*[｜|]\s*|\s{3,}/).filter((seg) => seg.trim() && !META.test(seg)).map(stripHead).join(' ');
+    s = s.replace(/【([^】]*)】/g, (m, x) => (TAG.test(x) || /^第?\s*\d+\s*[回話话集]?$/.test(x) ? ' ' : ` ${x} `)).replace(/[(（][^)）]*[)）]/g, (m) => (TAG.test(m) ? ' ' : m));
+    s = s.replace(/《[^》]*》/g, ' ');
+    s = s.replace(/第\s*[一二三四五六七八九十]{1,3}\s*[集话話]|第\s*\d+\s*(?:[-~～]\s*\d+\s*)?[話话集回]|\bEP\.?\s*\d+(?:\s*[-~]\s*(?:EP)?\s*\d+)?|#\s*\d+|首播\d*分鐘/gi, ' ')
+      .replace(/第\s*[一二三四五六七八九十\d]+\s*季|(?<![A-Za-z])S\d+(?!\d)|Season\s*\d+/gi, ' ');
+    // 中文副標旁邊的英文片名（「Slay The Gods」）不要；整段都是英文的保留
+    if (/\p{Script=Han}/u.test(s)) s = s.replace(/(?:^|\s)[A-Za-z][A-Za-z0-9'’:!?&.,\- ]{6,}(?=\s|$)/g, ' ');
+    s = s.replace(/[「」]/g, ' ').replace(/\s+/g, ' ').replace(/^[\s\-—:：、,，.。·•~～/／]+|[\s\-—:：、,，.·•~～/／]+$/g, '').trim();
+    return cn ? toTrad(s) : s;
+  };
+  const subs = titles.map(one);
+  if (subs.length >= 3) { // 每一集都一樣的開頭、結尾（標語、片名）拿掉；全部一樣就是沒有副標
+    const pre = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i; };
+    let p = subs.reduce((n, s) => Math.min(n, pre(subs[0], s)), Infinity);
+    let q = subs.reduce((n, s) => Math.min(n, pre([...subs[0]].reverse().join(''), [...s].reverse().join(''))), Infinity);
+    if (subs.every((s) => s === subs[0])) return subs.map(() => '');
+    p = p >= 2 ? p : 0; q = q >= 2 ? q : 0;
+    const cut = subs.map((s) => s.slice(p, s.length - q).replace(/^[\s\-—:：、,，·•|｜]+|[\s\-—:：、,，·•|｜]+$/g, '').trim());
+    // 同一句在一季裡出現 3 次以上、超過三成的集都是它：是宣傳語不是副標
+    const count = new Map(); cut.forEach((s) => count.set(s, (count.get(s) ?? 0) + 1));
+    return cut.map((s) => (s && count.get(s) >= 3 && count.get(s) > cut.length * 0.3 ? '' : s));
+  }
+  return subs;
 }
 
 // ── 中文簡介：頻道播放清單的說明，清掉宣傳雜訊（docs/features.md）──

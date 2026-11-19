@@ -104,6 +104,9 @@ main { min-height: calc(100vh - 120px); }
 .card:hover .thumb img { transform: scale(1.06); }
 .badge { position: absolute; top: var(--s2); right: var(--s2); padding: 2px 8px; border-radius: 6px; background: #0f0d0cd9; font-size: var(--fs-xs); font-weight: 700; color: var(--kin); font-variant-numeric: tabular-nums; }
 .badge.resume { right: auto; left: var(--s2); background: var(--shu); color: #fff; }
+.ep-bar { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin: var(--s2) 0; padding-bottom: var(--s2); border-bottom: 1px solid var(--line); color: var(--mute); font-size: var(--fs-sm); }
+.ep-bar .link { color: var(--kin); }
+.sp-type { font-style: normal; margin-right: var(--s2); padding: 1px 6px; border-radius: 4px; background: var(--ink-2); border: 1px solid var(--line); color: var(--kin); font-size: var(--fs-xs); }
 .h-note { margin-left: var(--s3); color: var(--mute); font-size: var(--fs-sm); font-weight: 400; }
 .badge.lock { top: auto; bottom: var(--s2); display: grid; place-items: center; padding: 3px; color: var(--mute); }
 .badge.lock.most { color: var(--kin); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kin) 50%, transparent); }
