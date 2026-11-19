@@ -761,3 +761,30 @@ export function ownDesc(desc, next, names, first = false) {
   const marks = [...toTrad(text).matchAll(/《(.+?)》/g)].map((m) => m[1]);
   return after && (!marks.length || marks.some(like)) ? text : '';
 }
+
+/**
+ * 作品實際看得到的集數：各季的集（同一季的配音版、片源只算一次）＋單篇＋合集補上的集
+ * （合集範圍裡沒有單獨上傳的集；整季、整部的全集沒寫範圍，當成全部看得到，回 Infinity）
+ */
+export function playableEps(seasons) {
+  const have = new Map();
+  let n = 0;
+  for (const s of seasons) {
+    if (s.bundle) continue;
+    if (s.kind === 'special') { n++; continue; }
+    const key = s.no ?? `名:${s.name}`; // 沒季數的季（「I am a hero too」）不能跟第 1 季混在一起
+    const set = have.get(key) ?? new Set();
+    for (const d of s.dubs) for (const e of d.episodes) set.add(e.n);
+    have.set(key, set);
+  }
+  n += [...have.values()].reduce((k, x) => k + x.size, 0);
+  for (const { bundle: b } of seasons.filter((s) => s.bundle)) {
+    if (b.a == null) return Infinity;
+    const set = b.season ? have.get(b.season) ?? new Set() : new Set([...have.values()].flatMap((x) => [...x]));
+    for (let k = b.a; k <= b.b; k++) if (!set.has(k)) { set.add(k); n++; }
+  }
+  return n;
+}
+
+/** 幾乎只有會員限定的作品不收：有會員集、看得到的不到 12 集（一季），而且不到全部的 1/3（docs/adr/0009） */
+export const memberLocked = (playable, members) => members > 0 && playable < 12 && playable * 3 < playable + members;

@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { zstdDecompressSync } from 'node:zlib';
-import { buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, episodeNumber, movieKey, episodeSubs, ownDesc, isMixed, parseHints, seasonLabel, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
+import { buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, episodeNumber, movieKey, episodeSubs, ownDesc, isMixed, memberLocked, playableEps, parseHints, seasonLabel, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
 import { BLOCKED_GENRES, GENRES, TAGS } from './taxonomy.mjs';
 
 const KEY = process.env.YOUTUBE_API_KEY;
@@ -342,6 +342,7 @@ function specialType(x) {
 
 const works = [], workFiles = [];
 report.fuzzy = [];
+report.memberLocked = []; // 幾乎只有會員限定、不收的作品（docs/adr/0009）
 {
   for (const w0 of groupWorks(items, manualWorks, related, apart, report.fuzzy, chainOf)) {
     // 合集依季、集數由小到大排在最後
@@ -367,6 +368,9 @@ report.fuzzy = [];
     const all = w.seasons.flatMap((x) => x.dubs), a = latest.a, e = latest.entry;
     const allEps = all.flatMap((d) => d.episodes);
     const id = createHash('sha1').update(`${ch.key}|${w.key}`).digest('hex').slice(0, 10);
+    // 會員限定集數：各季取會員集最多的那個清單（同一季的配音版、片源通常重複），卡片上顯示鎖頭
+    const memberEps = w.seasons.reduce((n, x) => n + Math.max(0, ...x.dubs.map((d) => d.members ?? 0)), 0), playable = playableEps(w.seasons);
+    if (memberLocked(playable, memberEps)) { report.memberLocked.push({ id, title: w.base, playable, members: memberEps }); continue; }
     works.push({
       id, title: w.base, channel: ch.key, origin: a?.countryOfOrigin ?? ch.origin,
       alt: [...new Set(all.flatMap((d) => [d.name, d.entry?.title, ...(d.entry?.synonyms ?? []).slice(0, 8)]))].filter((x) => x && x !== w.base),
@@ -376,8 +380,7 @@ report.fuzzy = [];
       format: main.length ? (a?.format ?? e?.type ?? 'TV') : (a?.format ?? 'SINGLE'),
       score: a?.averageScore ?? null, popularity: Math.max(0, ...all.map((d) => d.a?.popularity ?? 0)), trending: Math.max(0, ...all.map((d) => d.a?.trending ?? 0)),
       seasons: main.length, eps: w.seasons.filter((x) => !x.bundle).reduce((n, x) => n + pick(x).episodes.length, 0), bundles: w.seasons.filter((x) => x.bundle).length,
-      // 會員限定集數：各季取會員集最多的那個清單（同一季的配音版、片源通常重複），卡片上顯示鎖頭
-      memberEps: w.seasons.reduce((n, x) => n + Math.max(0, ...x.dubs.map((d) => d.members ?? 0)), 0),
+      memberEps,
       totalEps: main.length === 1 ? (a?.episodes ?? e?.episodes ?? null) : null,
       views: allEps.reduce((n, x) => n + x.views, 0), updated: allEps.reduce((m, x) => (x.at > m ? x.at : m), ''),
       thumb: latest.episodes[0].id, cover: a?.coverImage?.large ?? null, banner: a?.bannerImage ?? null,

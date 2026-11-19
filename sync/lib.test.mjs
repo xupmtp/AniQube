@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles, isMixed, episodeSubs, seasonLabel, isExtra, ownDesc, movieKey } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles, isMixed, episodeSubs, seasonLabel, isExtra, ownDesc, movieKey, playableEps, memberLocked } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -443,4 +443,20 @@ test('movieKey：重複上傳的同一部片對得上，不同片對不上', () 
 });
 test('movieKey：「｜」後是版本名時不能切掉', () => {
   assert.notEqual(movieKey('《機戰少女Alice Expansion》#OVA｜四谷裕美ver. (繁中字幕 | 日語原聲)【Ani-One】'), movieKey('《機戰少女Alice Expansion》#OVA｜兼志谷星ver. (繁中字幕 | 日語原聲)【Ani-One】'));
+});
+
+test('playableEps／memberLocked：合集補上的集也算看得到', () => {
+  const s = (no, ns, extra = {}) => ({ kind: 'season', no, dubs: [{ episodes: ns.map((n) => ({ n })) }, { episodes: ns.map((n) => ({ n })) }], ...extra });
+  assert.equal(playableEps([s(1, [1])]), 1); // 配音版不重複算
+  assert.equal(playableEps([s(1, [1]), { bundle: { a: 1, b: 16, season: null }, dubs: [] }]), 16); // 從紅月開始
+  assert.equal(playableEps([s(1, [1]), { bundle: { a: null, b: null, season: null }, dubs: [] }]), Infinity);
+  assert.equal(memberLocked(1, 47), true);   // 快把我哥帶走 1/48
+  assert.equal(memberLocked(5, 11), true);   // 墮玄師 5/16
+  assert.equal(memberLocked(12, 126), false); // 我的英雄學院：一季以上
+  assert.equal(memberLocked(5, 8), false);   // 九州縹緲錄：會員集不到 2/3
+  assert.equal(memberLocked(3, 0), false);   // 沒有會員集
+});
+test('playableEps：沒季數的季另外算', () => {
+  const s = (no, name, ns) => ({ kind: 'season', no, name, dubs: [{ episodes: ns.map((n) => ({ n })) }] });
+  assert.equal(playableEps([s(1, '第 1 季', [1]), s(null, 'I am a hero too', [1])]), 2);
 });

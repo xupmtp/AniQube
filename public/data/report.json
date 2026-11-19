@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-19T05:07:16.662Z",
+ "generatedAt": "2026-11-19T06:22:04.566Z",
  "units": 0,
  "unmatched": [
   {
@@ -61,6 +61,16 @@
    "id": "PLC18xlbCdwtQNUGYfTq8Dlz_1KYYEGBri",
    "title": "🖤《惡魔戰線》(繁中字幕)【Ani-One】",
    "eps": 12
+  },
+  {
+   "id": "v-y-3ld6gClmg",
+   "title": "《鏈鋸人 總集篇 後篇》(繁中字幕 | 日語配音)【Ani-One】",
+   "eps": 1
+  },
+  {
+   "id": "v-h4pbXtK8g3o",
+   "title": "《鏈鋸人 總集篇 前篇》(繁中字幕 | 日語配音)【Ani-One】",
+   "eps": 1
   },
   {
    "id": "PLciCwZp6ms38",
@@ -125,17 +135,121 @@
    "為美好的世界獻上祝福！2"
   ]
  ],
+ "memberLocked": [
+  {
+   "id": "b0784a294f",
+   "title": "鏈鋸人",
+   "playable": 3,
+   "members": 13
+  },
+  {
+   "id": "842fb45ee9",
+   "title": "大理寺日誌",
+   "playable": 1,
+   "members": 11
+  },
+  {
+   "id": "c0b658325f",
+   "title": "大夏守墓人",
+   "playable": 1,
+   "members": 17
+  },
+  {
+   "id": "57c34111b1",
+   "title": "靈境行者",
+   "playable": 1,
+   "members": 12
+  },
+  {
+   "id": "ad6f4f6fe8",
+   "title": "死靈法師！我即是天災",
+   "playable": 1,
+   "members": 37
+  },
+  {
+   "id": "7e37d9e878",
+   "title": "萬古神帝",
+   "playable": 1,
+   "members": 39
+  },
+  {
+   "id": "bbd4464603",
+   "title": "顧長歌：我！天命大反派",
+   "playable": 1,
+   "members": 41
+  },
+  {
+   "id": "816f63498f",
+   "title": "城隍錄",
+   "playable": 1,
+   "members": 6
+  },
+  {
+   "id": "a02887ec17",
+   "title": "仙劍奇俠傳三",
+   "playable": 1,
+   "members": 32
+  },
+  {
+   "id": "92cd6262bf",
+   "title": "妖精種植手冊",
+   "playable": 1,
+   "members": 13
+  },
+  {
+   "id": "90df0b1127",
+   "title": "王者大師兄",
+   "playable": 5,
+   "members": 11
+  },
+  {
+   "id": "eca7fd05cf",
+   "title": "劍道第一仙",
+   "playable": 1,
+   "members": 20
+  },
+  {
+   "id": "a03eac4407",
+   "title": "近戰法師",
+   "playable": 1,
+   "members": 22
+  },
+  {
+   "id": "ad7291f36a",
+   "title": "惡魔法則",
+   "playable": 1,
+   "members": 27
+  },
+  {
+   "id": "1711c5ef0c",
+   "title": "魔裝傳說",
+   "playable": 1,
+   "members": 30
+  },
+  {
+   "id": "e8757e5de7",
+   "title": "墮玄師",
+   "playable": 5,
+   "members": 11
+  },
+  {
+   "id": "e50a7affd7",
+   "title": "快把我哥帶走",
+   "playable": 1,
+   "members": 47
+  }
+ ],
  "desc": {
   "muse": {
    "zh": 295,
    "en": 7
   },
   "anione": {
-   "zh": 250,
+   "zh": 249,
    "en": 1
   },
   "tencent": {
-   "zh": 90,
+   "zh": 74,
    "en": 8
   },
   "mighty": {
@@ -167,9 +281,9 @@
   "機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster"
  ],
  "counts": {
-  "works": 705,
+  "works": 688,
   "seasons": 2469,
-  "unmatched": 18,
+  "unmatched": 20,
   "guessed": 1,
   "fuzzy": 5,
   "moved": 66
