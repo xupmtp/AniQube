@@ -5,11 +5,11 @@ import { epLabel, fmtDur, ytUrl } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
 import { loadYT } from '../player.ts';
 import type { YTPlayer } from '../player.ts';
-import { clearProgress, isWatched, markSeen, markWatched, progress, setProgress, settings } from '../store.ts';
+import { clearProgress, isWatched, markSeen, markWatched, prefs, progress, setProgress, settings } from '../store.ts';
 import { KEY_HELP, isTyping, keyAction } from '../keys.ts';
 import { clock, pageUrl, share } from '../share.ts';
 import type { Detail } from '../types.ts';
-import { dubIndex, epAt, episodeRows, firstSpot, locate, nextSpot, sourceIndex, sourcesOf, switchDub } from '../work.ts';
+import { dubChoices, epAt, firstSpot, locate, nextSpot, prevSpot, sourceChoices, unionRows } from '../work.ts';
 import type { Spot } from '../work.ts';
 import SpecialList from '../components/SpecialList.vue';
 
@@ -38,18 +38,21 @@ watch(id, async (v) => {
 }, { immediate: true });
 
 // 要播哪一集：網址指定 > 上次看到的 > 從頭；指到已經不存在的集就從頭
+// 這部作品的配音、片源偏好（在這頁切換過才有）：列表、下一集都照它挑版本（docs/adr/0010）
+const pref = computed(() => prefs[id.value] ?? {});
 const spot = computed<Spot | null>(() => {
   const det = detail.value;
   if (!det) return null;
   const want = String(route.params.ep ?? '') || progress[id.value]?.ep || '';
-  return locate(det, want) ?? firstSpot(det);
+  return locate(det, want) ?? firstSpot(det, pref.value);
 });
 const ep = computed(() => (detail.value && spot.value ? epAt(detail.value, spot.value) : undefined));
 const season = computed(() => (detail.value && spot.value ? detail.value.seasons[spot.value.s] : undefined));
-const rows = computed(() => { const r = season.value && spot.value ? episodeRows(season.value, spot.value.d) : []; return settings.newestFirst ? [...r].reverse() : r; });
-const count = computed(() => rows.value.filter((r) => r.ep).length);
-const next = computed(() => (detail.value && spot.value ? nextSpot(detail.value, spot.value) : null));
-const prev = computed(() => (detail.value && spot.value && spot.value.i > 0 ? { ...spot.value, i: spot.value.i - 1 } : null));
+const rows = computed(() => { const r = detail.value && spot.value ? unionRows(detail.value, spot.value.s, pref.value) : []; return settings.newestFirst ? [...r].reverse() : r; });
+const count = computed(() => rows.value.length);
+const seenRow = (ids: string[]) => ids.some((x) => isWatched(id.value, x)); // 看過以集數為準，不管哪個配音、片源
+const next = computed(() => (detail.value && spot.value ? nextSpot(detail.value, spot.value, pref.value) : null));
+const prev = computed(() => (detail.value && spot.value ? prevSpot(detail.value, spot.value, pref.value) : null));
 const indexed = computed(() => detail.value?.seasons.map((x, s) => ({ x, s })) ?? []);
 const specials = computed(() => indexed.value.filter(({ x }) => x.kind === 'special'));
 // 季選單：各季，最後一項是劇場版與特別篇（s = -1）
@@ -59,17 +62,16 @@ const external = computed(() => !!ep.value?.ext || failed.value);
 const enc = encodeURIComponent;
 const linkTo = (p: Spot) => `/watch/${enc(id.value)}/${epAt(detail.value!, p).id}`;
 
-function pickDub(d: number) { if (spot.value) router.replace(linkTo(switchDub(detail.value!, spot.value, d))); }
-// 換季沿用目前的片源與配音版，那一季沒有就用原聲
-function pickSeason(s: number) {
-  if (s < 0) { router.push(linkTo({ s: specials.value[0].s, d: 0, i: 0 })); return; }
-  const cur = season.value?.dubs[spot.value!.d];
-  router.push(linkTo({ s, d: dubIndex(detail.value!.seasons[s], cur?.lang, cur?.ch), i: 0 }));
+// 換季照偏好挑版本，從第一集開始
+function pickSeason(s: number) { router.push(linkTo(unionRows(detail.value!, s < 0 ? specials.value[0].s : s, pref.value)[0])); }
+// 這一集有的配音、目前配音下有的片源；切換時記成這部作品的偏好，跳到同一集的那個版本
+const dubs = computed(() => (detail.value && spot.value ? dubChoices(detail.value, spot.value) : []));
+const sources = computed(() => (detail.value && spot.value ? sourceChoices(detail.value, spot.value) : []));
+function choose(p: Spot) {
+  const x = detail.value!.seasons[p.s].dubs[p.d];
+  prefs[id.value] = { lang: x.lang, ch: x.ch };
+  router.replace(linkTo(p));
 }
-// 片源：換頻道時跳到同一集數；配音選單只列目前片源的
-const sources = computed(() => (season.value ? sourcesOf(season.value) : []));
-const dubOpts = computed(() => season.value?.dubs.map((d, i) => ({ d, i })).filter(({ d }) => d.ch === season.value!.dubs[spot.value!.d].ch) ?? []);
-function pickSource(ch: string) { pickDub(sourceIndex(season.value!, spot.value!.d, ch)); }
 
 function stop() { player?.destroy(); player = null; if (wrap.value) wrap.value.innerHTML = ''; }
 
@@ -175,6 +177,7 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
         <p>{{ failed ? '播放器無法載入這一集。' : '這一集無法在站內播放。' }}</p>
         <a v-if="ep" class="btn primary" :href="ytUrl(ep.id)" target="_blank" rel="noopener noreferrer">前往 YouTube 觀看</a>
       </div>
+      <div v-if="sources.length > 1" class="chips src-bar"><b>片源</b><button v-for="o in sources" :key="o.ch" :class="{ on: o.spot.d === spot.d }" :aria-pressed="o.spot.d === spot.d" @click="choose(o.spot)">{{ labels[o.ch] ?? o.ch }}</button></div>
       <div class="bar">
         <div>
           <RouterLink :to="`/title/${enc(id)}`" class="back">‹ {{ title }}</RouterLink>
@@ -210,22 +213,18 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
         <select v-if="options.length > 1" :value="season.kind === 'special' ? -1 : spot.s" aria-label="選擇季" @change="pickSeason(Number(($event.target as HTMLSelectElement).value))">
           <option v-for="o in options" :key="o.s" :value="o.s">{{ o.name }}</option>
         </select>
-        <select v-if="sources.length > 1" :value="season.dubs[spot.d].ch" aria-label="選擇片源" @change="pickSource(($event.target as HTMLSelectElement).value)">
-          <option v-for="c in sources" :key="c" :value="c">{{ labels[c] ?? c }}</option>
-        </select>
-        <select v-if="dubOpts.length > 1" :value="spot.d" aria-label="選擇配音" @change="pickDub(Number(($event.target as HTMLSelectElement).value))">
-          <option v-for="o in dubOpts" :key="o.i" :value="o.i">{{ o.d.lang }}配音</option>
+        <select v-if="dubs.length > 1" :value="season.dubs[spot.d].lang" aria-label="選擇配音" @change="choose(dubs.find((o) => o.lang === ($event.target as HTMLSelectElement).value)!.spot)">
+          <option v-for="o in dubs" :key="o.lang" :value="o.lang">{{ o.lang }}配音</option>
         </select>
       </div>
       <div v-if="season.kind !== 'special'" class="ep-bar"><span>共 {{ count }} 集</span><button class="link" :aria-label="`排序：${settings.newestFirst ? '新到舊' : '舊到新'}，點一下切換`" @click="settings.newestFirst = !settings.newestFirst">{{ settings.newestFirst ? '新到舊' : '舊到新' }} ⇅</button></div>
-      <SpecialList v-if="season.kind === 'special'" :id="id" :items="specials" :lang="season.dubs[spot.d].lang" :cur="ep?.id" />
+      <SpecialList v-if="season.kind === 'special'" :id="id" :items="specials" :pref="pref" :cur="ep?.id" />
       <ol v-else class="eps">
         <li v-for="r in rows" :key="r.n">
-          <RouterLink v-if="r.ep" :to="`/watch/${enc(id)}/${r.ep.id}`" :class="{ cur: r.ep.id === ep?.id, seen: isWatched(id, r.ep.id) }">
+          <RouterLink :to="`/watch/${enc(id)}/${r.ep.id}`" :class="{ cur: r.ids.includes(ep?.id ?? ''), seen: seenRow(r.ids) }">
             <b>{{ r.n }}</b><span :title="r.ep.title">{{ epLabel(r.ep, season.name) }}</span>
-            <small><span v-if="isWatched(id, r.ep.id)" class="tick" aria-label="看過">✓</span>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · YouTube</template></small>
+            <small><span v-if="seenRow(r.ids)" class="tick" aria-label="看過">✓</span>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · YouTube</template></small>
           </RouterLink>
-          <div v-else class="none"><b>{{ r.n }}</b><span>無此配音</span></div>
         </li>
       </ol>
     </div>

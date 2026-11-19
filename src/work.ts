@@ -1,7 +1,12 @@
 // 作品內的位置：第幾季、哪個配音版、第幾集。播放頁與作品頁共用，純函式所以能直接測。
+// 集數列表是一季裡所有配音版、片源的聯集，同一集只列一次；換配音、換片源只在播放頁（docs/adr/0010）
 import type { Detail, Episode, Season } from './types.ts';
 
 export interface Spot { s: number; d: number; i: number }
+/** 觀看者在這部作品選過的配音與片源（在播放頁切換過才有） */
+export interface Pref { lang?: string; ch?: string }
+/** 列表的一列：這一集要播的那支（s、d、i），與同一集所有版本的影片 ID（看過的標記用） */
+export interface Row extends Spot { n: number; ep: Episode; ids: string[] }
 
 export const epAt = (det: Detail, p: Spot): Episode => det.seasons[p.s].dubs[p.d].episodes[p.i];
 
@@ -16,48 +21,59 @@ export function locate(det: Detail, epId: string): Spot | null {
   return null;
 }
 
-/** 從頭看：第一個非單篇的季、原聲（sync 已把原聲排第一）、第一集 */
-export function firstSpot(det: Detail): Spot {
-  return { s: Math.max(0, det.seasons.findIndex((x) => x.kind !== 'special')), d: 0, i: 0 };
+/** 同一集有好幾支時挑哪支：偏好的配音 > 原聲（sync 把原聲排第一）> 其他配音；同配音再看偏好的片源 > 能站內播 > sync 的順序 */
+function rank(season: Season, d: number, ep: Episode, pref: Pref): number[] {
+  const x = season.dubs[d], orig = season.dubs[0].lang;
+  return [x.lang === (pref.lang ?? orig) ? 0 : x.lang === orig ? 1 : 2, pref.ch && x.ch === pref.ch ? 0 : 1, ep.ext ? 1 : 0, d];
+}
+const better = (a: number[], b: number[]) => { for (let k = 0; k < a.length; k++) if (a[k] !== b[k]) return a[k] < b[k]; return false; };
+
+/** 季的集數列表：所有配音版、片源的聯集，依集數排，每集挑一支 */
+export function unionRows(det: Detail, s: number, pref: Pref = {}): Row[] {
+  const season = det.seasons[s], rows = new Map<number, Row & { r: number[] }>();
+  season.dubs.forEach((dub, d) => dub.episodes.forEach((ep, i) => {
+    const r = rank(season, d, ep, pref), cur = rows.get(ep.n);
+    if (!cur) rows.set(ep.n, { s, d, i, n: ep.n, ep, ids: [ep.id], r });
+    else { cur.ids.push(ep.id); if (better(r, cur.r)) Object.assign(cur, { d, i, ep, r }); }
+  }));
+  return [...rows.values()].sort((a, b) => a.n - b.n).map(({ r, ...row }) => row);
 }
 
-/** 季裡的配音版位置：同片源同配音 > 同配音（換片源）> 第一個（sync 已把預設片源的原聲排第一） */
-export function dubIndex(season: Season, lang?: string, ch?: string): number {
-  const i = season.dubs.findIndex((x) => x.lang === lang && x.ch === ch);
-  return i >= 0 ? i : Math.max(0, season.dubs.findIndex((x) => x.lang === lang));
+/** 從頭看：第一個非單篇的季的第一集 */
+export function firstSpot(det: Detail, pref: Pref = {}): Spot {
+  const s = Math.max(0, det.seasons.findIndex((x) => x.kind !== 'special'));
+  const { d, i } = unionRows(det, s, pref)[0];
+  return { s, d, i };
 }
 
-/** 這一季有哪些片源頻道（照 sync 排好的順序，第一個是預設） */
-export const sourcesOf = (season: Season): string[] => [...new Set(season.dubs.map((x) => x.ch ?? ''))];
-
-/** 換片源：留在目前的配音，那個片源沒有就用它的第一個配音版 */
-export function sourceIndex(season: Season, d: number, ch: string): number {
-  const i = season.dubs.findIndex((x) => x.ch === ch && x.lang === season.dubs[d].lang);
-  return i >= 0 ? i : Math.max(0, season.dubs.findIndex((x) => x.ch === ch));
-}
-
-/** 同一個配音版的下一集；這季看完接下一季（略過單篇），下一季優先同片源同配音，沒有就用原聲 */
-export function nextSpot(det: Detail, p: Spot): Spot | null {
-  const dub = det.seasons[p.s].dubs[p.d];
-  if (p.i + 1 < dub.episodes.length) return { ...p, i: p.i + 1 };
+/** 下一集（照偏好挑版本）；這季看完接下一季（略過單篇），單篇看完就停 */
+export function nextSpot(det: Detail, p: Spot, pref: Pref = {}): Spot | null {
+  const rows = unionRows(det, p.s, pref), k = rows.findIndex((r) => r.n === epAt(det, p).n);
+  if (k + 1 < rows.length) return rows[k + 1];
   if (det.seasons[p.s].kind === 'special') return null;
-  for (let s = p.s + 1; s < det.seasons.length; s++) {
-    const season = det.seasons[s];
-    if (season.kind === 'special') continue;
-    return { s, d: dubIndex(season, dub.lang, dub.ch), i: 0 };
-  }
-  return null;
+  const s = det.seasons.findIndex((x, j) => j > p.s && x.kind !== 'special');
+  return s < 0 ? null : unionRows(det, s, pref)[0];
 }
 
-/** 換配音版：跳到同一集數；那個配音版沒有這集就從第一集開始 */
-export function switchDub(det: Detail, p: Spot, d: number): Spot {
-  const n = epAt(det, p).n;
-  return { s: p.s, d, i: Math.max(0, det.seasons[p.s].dubs[d].episodes.findIndex((e) => e.n === n)) };
+/** 上一集；季的第一集就沒有 */
+export function prevSpot(det: Detail, p: Spot, pref: Pref = {}): Spot | null {
+  const rows = unionRows(det, p.s, pref), k = rows.findIndex((r) => r.n === epAt(det, p).n);
+  return k > 0 ? rows[k - 1] : null;
 }
 
-/** 季在某配音版下的集數列表；同片源其他配音版有、這版沒有的集數也列出，ep 為 null（顯示「無此配音」） */
-export function episodeRows(season: Season, d: number): { n: number; ep: Episode | null }[] {
-  const own = new Map(season.dubs[d].episodes.map((e) => [e.n, e]));
-  const ns = new Set(season.dubs.filter((x) => x.ch === season.dubs[d].ch).flatMap((x) => x.episodes.map((e) => e.n)));
-  return [...ns].sort((a, b) => a - b).map((n) => ({ n, ep: own.get(n) ?? null }));
+/** 這一集有哪些配音：每個配音挑一支（同配音時沿用目前的片源） */
+export function dubChoices(det: Detail, p: Spot): { lang: string; spot: Spot }[] {
+  const season = det.seasons[p.s], n = epAt(det, p).n, ch = season.dubs[p.d].ch;
+  const langs = [...new Set(season.dubs.map((x) => x.lang))];
+  return langs.map((lang) => ({ lang, row: unionRows(det, p.s, { lang, ch }).find((r) => r.n === n) }))
+    .filter((x) => x.row && season.dubs[x.row.d].lang === x.lang).map(({ lang, row }) => ({ lang, spot: { s: row!.s, d: row!.d, i: row!.i } }));
+}
+
+/** 這一集在目前配音下有哪些片源頻道 */
+export function sourceChoices(det: Detail, p: Spot): { ch: string; spot: Spot }[] {
+  const season = det.seasons[p.s], n = epAt(det, p).n, lang = season.dubs[p.d].lang;
+  return season.dubs.flatMap((x, d) => {
+    const i = x.lang === lang ? x.episodes.findIndex((e) => e.n === n) : -1;
+    return i >= 0 ? [{ ch: x.ch ?? '', spot: { s: p.s, d, i } }] : [];
+  });
 }
