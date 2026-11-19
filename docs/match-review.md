@@ -7,7 +7,8 @@
 ```bash
 nvm use 22 || true          # 需要 Node ≥ 22.15（zstd）
 npm ci
-mkdir -p sync/cache && git fetch -q --depth 1 origin data-cache && git show FETCH_HEAD:raw.json > sync/cache/raw.json
+mkdir -p sync/cache && git fetch -q --depth 1 origin data-cache && git show FETCH_HEAD:raw.json.gz | gunzip > sync/cache/raw.json
+git show FETCH_HEAD:anilist.json > sync/cache/anilist.json
 npm run rebuild             # 不需要 YouTube 金鑰、不花配額
 ```
 

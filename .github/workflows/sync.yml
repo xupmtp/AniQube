@@ -16,11 +16,11 @@ jobs:
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm test
-      # YouTube 原始資料與 AniList 關係快取放在 data-cache 分支（只留一個 commit）。push 時用它重建，
+      # YouTube 原始資料（gzip，未壓縮會超過 GitHub 單檔 100 MB）與 AniList 關係快取放在 data-cache 分支（只留一個 commit）。push 時用它重建，
       # 改規則或人工對應（manual-*.json）推上來就生效，不用等隔天同步，也不花配額
       - run: |
           mkdir -p sync/cache && git fetch -q --depth 1 origin data-cache || { echo "沒有快取"; exit 0; }
-          git show FETCH_HEAD:raw.json > sync/cache/raw.json
+          git show FETCH_HEAD:raw.json.gz | gunzip > sync/cache/raw.json || git show FETCH_HEAD:raw.json > sync/cache/raw.json
           git show FETCH_HEAD:anilist.json > sync/cache/anilist.json || rm -f sync/cache/anilist.json
       # 只有排程與手動才同步
       - if: github.event_name != 'push'
@@ -36,7 +36,7 @@ jobs:
           git add public/data
           git commit -m "chore: daily catalog sync $(date -u +%F)" || true
           git push
-          cd sync/cache && git init -q -b data-cache && git add raw.json anilist.json
+          cd sync/cache && gzip -9 -c raw.json > raw.json.gz && git init -q -b data-cache && git add raw.json.gz anilist.json
           git -c user.name=aniqube-bot -c user.email=bot@users.noreply.github.com commit -qm "raw cache $(date -u +%F)"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" data-cache
       - run: npm run build
