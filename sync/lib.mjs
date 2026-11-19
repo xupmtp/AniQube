@@ -36,7 +36,7 @@ export function dubLabel(raw) {
 /** 從標題抓季數與年份提示，用來在同名多筆條目中挑一筆 */
 export function parseHints(raw) {
   const hints = { season: null, year: null, movie: /劇場版|剧场版|電影|电影|映畫/.test(raw) };
-  let m = /第\s*([一二三四五六七八九十]|\d+)\s*季/.exec(raw) || /\bS(\d+)/i.exec(raw) || /Season\s*(\d+)/i.exec(raw) || /(\d+)(?:st|nd|rd|th)\s*Season/i.exec(raw);
+  let m = /第\s*([一二三四五六七八九十]|\d+)\s*季/.exec(raw) || /\bS(\d+)/i.exec(raw) || /Season\s*(\d+)/i.exec(raw) || /(\d+)(?:st|nd|rd|th)\s*Season/i.exec(raw) || /(?<![\p{L}\d])([一二三四五六七八九十]|\d+)\s*期(?!間|限)/u.exec(raw);
   if (m) hints.season = CJK_NUM[m[1]] ?? Number(m[1]);
   m = /(20\d\d)年\d+月新番/.exec(raw);
   if (m) hints.year = Number(m[1]);
@@ -68,8 +68,10 @@ const anilistId = (e) => {
 /** 離線資料集 → 名稱索引（只留有 AniList 條目的） */
 export function buildIndex(entries) {
   const idx = new Map();
+  idx.byId = new Map(); // AniList 編號 → 條目（混合清單偵測走相關作品用）
   for (const e of entries) {
     if (anilistId(e) == null) continue;
+    idx.byId.set(anilistId(e), e);
     for (const t of [e.title, ...(e.synonyms ?? [])]) {
       const k = norm(t);
       if (!k) continue;
@@ -99,13 +101,15 @@ export function match(raw, index) {
     const sorted = [...list].sort((a, b) => when(a) - when(b));
     let pick, how = 'single';
     if (sorted.length > 1) {
-      const tv = sorted.filter((e) => e.type === 'TV' || e.type === 'ONA');
+      // 同名的 TV/ONA 裡，1、2 集的多半是試播或特別篇（《失憶投捕》2020 年的 1 集 ONA），有正式的就不挑它們
+      const series = sorted.filter((e) => e.type === 'TV' || e.type === 'ONA');
+      const tv = series.some((e) => e.episodes >= 3) ? series.filter((e) => !(e.episodes > 0 && e.episodes < 3)) : series;
       const movies = sorted.filter((e) => e.type === 'MOVIE');
       if (hints.year && sorted.some((e) => e.animeSeason?.year === hints.year)) {
         pick = sorted.find((e) => e.animeSeason?.year === hints.year); how = 'year';
       } else if (hints.movie && movies.length) {
         pick = movies[0]; how = 'movie';
-      } else if (hints.season && tv[hints.season - 1]) {
+      } else if (hints.season && c !== cands[0] && tv[hints.season - 1]) { // 名稱本身已寫季數（「斗破苍穹 第二季」）就不再用季數挑
         pick = tv[hints.season - 1]; how = 'season';
       } else {
         pick = tv[0] ?? sorted[0]; how = 'first';
@@ -119,18 +123,14 @@ export function match(raw, index) {
 }
 
 const re = (src) => new RegExp(src, 'iu');
-// 頻道可覆寫「搶先看」標記；空字串 = 不用標題判斷（騰訊的「会员抢先看」是騰訊視頻 App 會員先看，YouTube 上是公開影片，2026-11 實測）
-const earlyMarks = (cfg, ch) => ch.memberMarkers ?? cfg.memberMarkers;
 
 /** 單支影片能不能進片庫。回傳 { ok, reason, ext }；ext=站外集（只能去 YouTube 看） */
 export function classifyVideo(v, cfg, ch, members, { standalone = false } = {}) {
-  const min = standalone ? cfg.standaloneMinSec : ch.minSec;
+  const min = standalone ? cfg.standaloneMinSec : cfg.minSec;
   if (v.live !== 'none') return { ok: false, reason: 'live' };
   if (members.has(v.id)) return { ok: false, reason: 'members' };
   if (v.twBlocked) return { ok: false, reason: 'region' };
   if (v.sec < min || v.sec > cfg.maxSec) return { ok: false, reason: 'length' };
-  const marks = earlyMarks(cfg, ch);
-  if (marks && re(marks).test(v.title)) return { ok: false, reason: 'early' };
   if (re(cfg.titleDeny).test(v.title)) return { ok: false, reason: 'denied' };
   return { ok: true, ext: !v.embeddable || v.age };
 }
@@ -165,9 +165,8 @@ export function sortEpisodes(all) {
 export function buildSeasons(playlists, videos, cfg, ch, members) {
   const out = [];
   const deny = re(cfg.titleDeny);
-  const marks = earlyMarks(cfg, ch), early = marks ? re(marks) : null;
   for (const p of playlists) {
-    if (deny.test(p.title) || early?.test(p.title) || cfg.excludeSeasons.includes(p.id)) continue;
+    if (deny.test(p.title)) continue;
     const eps = [];
     for (const id of p.videoIds) {
       const v = videos.get(id);
@@ -182,6 +181,22 @@ export function buildSeasons(playlists, videos, cfg, ch, members) {
     out.push({ playlistId: p.id, rawTitle: p.title, desc: p.desc ?? '', episodes: sortEpisodes(eps), members: p.videoIds.filter((id) => members.has(id)).length });
   }
   return out;
+}
+
+/**
+ * 混合清單：好幾部不相干的作品放在同一份清單（「木棉花電影院 劇場版動畫」）。集數對到 3 個以上條目、
+ * 而且它們在資料集的相關作品裡連不起來，就是混合清單，不當成一季（裡面的影片仍可當單篇收）。
+ * 同一部長篇在資料集分成好幾個條目的（BLEACH 各篇章）彼此相關，不會被誤判
+ */
+export function isMixed(titles, index) {
+  const ids = [...new Set(titles.map((t) => match(t, index)?.anilistId).filter(Boolean))];
+  if (ids.length < 3) return false;
+  const seen = new Set([ids[0]]);
+  let front = [ids[0]];
+  for (let d = 0; d < 12 && front.length; d++) { // 長篇從第一季走到完結篇要好幾層（進擊的巨人 6 層以上）
+    front = front.flatMap((id) => (index.byId.get(id)?.relatedAnime ?? []).map((u) => Number(/anilist\.co\/anime\/(\d+)/.exec(u)?.[1])).filter((n) => n && !seen.has(n) && seen.add(n)));
+  }
+  return !ids.every((id) => seen.has(id));
 }
 
 /** 不在任何季裡的長片，且標題像劇場版/特別篇 → 單篇。單集上傳、談話節目、開箱都不收 */
@@ -235,11 +250,11 @@ export const bundleName = (title) => bundleNames(title)[0] ?? '';
 
 /** 不在任何季、也不是單篇的長片裡，標題像合集的 */
 export function buildBundles(videos, usedIds, cfg, ch, members) {
-  const deny = re(cfg.bundleDeny), marks = earlyMarks(cfg, ch), early = marks ? re(marks) : null;
+  const deny = re(cfg.bundleDeny);
   const out = [];
   for (const v of videos) {
     if (usedIds.has(v.id) || v.live !== 'none' || members.has(v.id) || v.twBlocked) continue;
-    if (v.sec < cfg.bundleMinSec || v.sec > cfg.bundleMaxSec || !BUNDLE.test(v.title) || deny.test(v.title) || early?.test(v.title)) continue;
+    if (v.sec < cfg.bundleMinSec || v.sec > cfg.bundleMaxSec || !BUNDLE.test(v.title) || deny.test(v.title)) continue;
     const names = bundleNames(v.title);
     if (!names.length) continue;
     out.push({
@@ -347,12 +362,13 @@ export function orderSeasons(list) {
  *   order = 頻道清單順序；aid = 對應到的 AniList 編號；when = 首播（年*10+季度，未知為 null）；original = 這份是原聲
  * override: { 清單ID: 作品名 }（人工作品對應表；指定的作品不參與自動合併）
  * related: { AniList編號: [續集／前傳的編號] }
- * apart: { AniList編號: [外傳、衍生、平行作品的編號] }（模糊比對不併這些）
+ * apart: { AniList編號: [重製版、系列形式外傳的編號] }（任何條件都不併這些）
+ * chainOf: Map<AniList編號, 系列鏈代表編號>（沿續作關係、不經過劇場版能連到的是同一條鏈）
  * log: 只靠模糊比對併起來的作品名配對會推進來，列進 report 供覆核
  * 所有頻道一起分組：同一部動畫不分片源頻道是同一部作品；同一季在不同頻道的清單是那一季的不同片源（item.channel）
  * 回傳 [{ key, base, seasons:[{ name, kind, no, dubs:[item] }] }]，季已排序；kind = season | collection | special
  */
-export function groupWorks(items, override = {}, related = {}, apart = {}, log = []) {
+export function groupWorks(items, override = {}, related = {}, apart = {}, log = [], chainOf = new Map()) {
   // 1. 標題：作品名相同的歸一部；季名相同、配音不同的是同一季的配音版；同季同配音只留集數最多的（重複上傳）
   const works = new Map();
   const workOf = (base) => {
@@ -371,44 +387,76 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
     if (it.id in override) w.pinned = true;
   };
   for (const it of items.filter((x) => !x.single)) addTo(workOf(override[it.id] ?? workBase(it.name)), it, false);
-  // 單篇：標題含某作品名（取最長的）就歸入該作品，否則自成一部
-  const keys = [...works.keys()].filter((k) => k.length >= 3).sort((a, b) => b.length - a.length);
-  for (const it of items.filter((x) => x.single)) {
+  // 單篇（劇場版、特別篇、合集）：名稱含某作品名（取最長的）就歸入該作品，否則自成一部。
+  // 短的先處理，自成一部的也能讓後面的歸入（《完美世界》的合集和特別篇歸在同一部）
+  const keys = () => [...works.values()].filter((w) => w.key.length >= 2).sort((a, b) => b.key.length - a.key.length);
+  // 兩個字的作品名太容易撞名：單篇名稱要以它開頭、後面接空白或標點（「冰菓 第01-22話」算、「冰菓子」不算）
+  const fits = (w, name) => (w.key.length >= 3 ? norm(name).includes(w.key) : name.startsWith(w.base) && /^[\s\p{P}]/u.test(name.slice(w.base.length)));
+  const singles = items.filter((x) => x.single).sort((a, b) => norm(a.name).length - norm(b.name).length);
+  for (const it of singles) {
     const forced = override[it.id];
     // 合集的名稱常是簡稱（「聖者無雙」對「聖者無雙～上班族的異世界生存之道」），也接受作品名以它開頭的
-    const find = (name) => keys.find((key) => norm(name).includes(key)) ?? (it.bundle && norm(name).length >= 3 ? keys.find((key) => key.startsWith(norm(name))) : undefined);
-    const k = forced ? norm(forced) : it.bundle ? it.bundle.names.map(find).find(Boolean) : find(it.name);
-    addTo(k && works.has(k) ? works.get(k) : workOf(forced ?? (it.bundle ? workBase(it.name) : it.name)), it, true);
+    const find = (name) => keys().find((w) => fits(w, name)) ?? (it.bundle && norm(name).length >= 3 ? keys().find((w) => w.key.startsWith(norm(name))) : undefined);
+    const w = forced ? workOf(forced) : (it.bundle ? it.bundle.names.map(find).find(Boolean) : find(it.name)) ?? workOf(it.bundle ? workBase(it.name) : it.name);
+    addTo(w, it, true);
   }
 
-  // 2. 合併：共用影片過半、同一個 AniList 編號、AniList 續集／前傳；人工指定的作品不動
+  // 2. 合併（docs/adr/0007）。系列之間的直接連結先合併：名稱相似、兩份季清單共用影片過半、同一個 AniList 編號、
+  //    同一條系列鏈上的續作關係。非系列（劇場版、單篇、合輯）的連結只能歸入一部系列：兩邊都已經有系列時，
+  //    只在系列鏈有交集才合併（進擊的巨人的「全集」連起 S1 與 The Final Season；Love Live! 的劇場版不會把 Sunshine 連進來）。
+  //    AniList 標明是重製版、系列形式外傳的（apart）不合併；人工指定的作品不動
   const list = [...works.values()];
   const dubsOf = (w) => [...w.groups.values()].flatMap((g) => [...g.dubs.values()]);
-  const eps = list.map((w) => new Set(dubsOf(w).flatMap((d) => d.episodes.map((e) => e.id))));
-  const up = list.map((_, i) => i);
+  // 系列：單篇以外的季；只含劇場版的清單（「伊莉雅 雪下的誓言」）不算
+  const movieOnly = (g) => [...g.dubs.values()].every((d) => d.a?.format === 'MOVIE');
+  const seasonDubs = (w) => [...w.groups.values()].filter((g) => !g.special && !movieOnly(g)).flatMap((g) => [...g.dubs.values()]);
+  const plainDubs = (w) => [...w.groups.values()].filter((g) => !g.special && !g.coll).flatMap((g) => [...g.dubs.values()]);
+  const idsOf = (ds) => new Set(ds.flatMap((d) => d.episodes.map((e) => e.id)));
+  const eps = list.map((w) => idsOf(dubsOf(w))), plainEps = list.map((w) => idsOf(plainDubs(w)));
+  const aids = list.map((w) => new Set(dubsOf(w).map((d) => d.aid).filter(Boolean)));
+  const seasonAids = list.map((w) => new Set(seasonDubs(w).map((d) => d.aid).filter(Boolean)));
+  const chain = (aid) => chainOf.get(aid) ?? aid;
+  const up = list.map((_, i) => i), chains = seasonAids.map((s) => new Set([...s].map(chain))), series = seasonAids.map((_, i) => seasonDubs(list[i]).length > 0);
   const find = (x) => (up[x] === x ? x : (up[x] = find(up[x])));
-  const join = (a, b) => { if (!list[a].pinned && !list[b].pinned) up[find(a)] = find(b); };
+  const unite = (a, b) => {
+    const [ra, rb] = [find(a), find(b)];
+    if (ra === rb) return;
+    up[ra] = rb; series[rb] ||= series[ra]; chains[ra].forEach((c) => chains[rb].add(c));
+  };
+  const isApart = (a, b) => [...aids[a]].some((x) => [...aids[b]].some((y) => apart[x]?.includes(y) || apart[y]?.includes(x)));
+  const links = []; // [a, b, 系列之間的直接連結?, 模糊?]
   const owners = new Map();
   eps.forEach((set, i) => set.forEach((e) => owners.set(e, [...(owners.get(e) ?? []), i])));
   const shared = new Map();
   for (const os of owners.values()) for (const a of os) for (const b of os) if (a < b) shared.set(`${a},${b}`, (shared.get(`${a},${b}`) ?? 0) + 1);
   for (const [k, n] of shared) { // 過半才算：「精選」「教學」這類混合清單只共用幾支，不該把不相干的作品串起來
     const [a, b] = k.split(',').map(Number);
-    if (n * 2 >= Math.min(eps[a].size, eps[b].size)) join(a, b);
+    if (n * 2 < Math.min(eps[a].size, eps[b].size)) continue;
+    const pn = [...plainEps[a]].filter((x) => plainEps[b].has(x)).length;
+    links.push([a, b, pn > 0 && pn * 2 >= Math.min(plainEps[a].size, plainEps[b].size)]);
   }
   const byAid = new Map();
-  list.forEach((w, i) => dubsOf(w).forEach((d) => { if (d.aid) { if (byAid.has(d.aid)) join(i, byAid.get(d.aid)); else byAid.set(d.aid, i); } }));
-  list.forEach((w, i) => dubsOf(w).forEach((d) => (related[d.aid] ?? []).forEach((b) => { if (byAid.has(b)) join(i, byAid.get(b)); })));
-  // 模糊：作品名相似度 Dice ≥ 0.8（實測 18 萬組不同作品只有 2 組超過，都是同系列的外傳），AniList 標明是外傳、衍生、平行作品的不併
-  const aids = list.map((w) => new Set(dubsOf(w).map((d) => d.aid).filter(Boolean)));
+  list.forEach((w, i) => aids[i].forEach((x) => byAid.set(x, [...(byAid.get(x) ?? []), i])));
+  for (const [x, ws] of byAid) for (const b of ws.slice(1)) links.push([ws[0], b, seasonAids[ws[0]].has(x) && seasonAids[b].has(x)]);
+  list.forEach((_, a) => aids[a].forEach((x) => (related[x] ?? []).forEach((y) => (byAid.get(y) ?? []).forEach((b) => {
+    if (a !== b) links.push([a, b, seasonAids[a].has(x) && seasonAids[b].has(y) && chain(x) === chain(y)]);
+  }))));
+  // 模糊：作品名相似度 Dice ≥ 0.8（實測 18 萬組不同作品只有 2 組超過，都是同系列的外傳）
   const grams = list.map((w) => bigrams(w.base));
-  const isApart = (a, b) => [...aids[a]].some((x) => [...aids[b]].some((y) => apart[x]?.includes(y) || apart[y]?.includes(x)));
-  for (let a = 0; a < list.length; a++) {
-    for (let b = a + 1; b < list.length; b++) {
-      if (find(a) === find(b) || grams[a].size < 2 || grams[b].size < 2 || dice(grams[a], grams[b]) < FUZZY || isApart(a, b)) continue;
-      join(a, b);
-      if (find(a) === find(b)) log.push([list[a].base, list[b].base]);
-    }
+  for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++)
+    if (grams[a].size >= 2 && grams[b].size >= 2 && dice(grams[a], grams[b]) >= FUZZY) links.push([a, b, true, true]);
+  const ok = (a, b) => !list[a].pinned && !list[b].pinned && !isApart(a, b);
+  for (const [a, b, direct, fuzzy] of links) {
+    if (!direct || !ok(a, b) || find(a) === find(b)) continue;
+    if (fuzzy) log.push([list[a].base, list[b].base]);
+    unite(a, b);
+  }
+  for (const [a, b, direct] of links) {
+    if (direct || !ok(a, b) || find(a) === find(b)) continue;
+    const [ra, rb] = [find(a), find(b)];
+    // 兩邊都有系列、也都知道系列鏈，鏈卻沒有交集 → 不串連；查不到對應（沒有鏈）的照舊合併
+    if (series[ra] && series[rb] && chains[ra].size && chains[rb].size && ![...chains[ra]].some((c) => chains[rb].has(c))) continue;
+    unite(a, b);
   }
 
   const merged = new Map();
@@ -416,7 +464,7 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
   const out = [];
   for (const members of merged.values()) {
     // 作品名：有原聲首季的那份，同樣是首季就取名稱最短的（「我的英雄學院」而非「我的英雄學院 : I am a hero too」）
-    const rank = (w) => Math.min(...[...w.groups.values()].filter((g) => !g.special && [...g.dubs.values()].some((d) => d.original)).map((g) => seasonNo(g.name) ?? 1));
+    const rank = (w) => Math.min(...[...w.groups.values()].filter((g) => !g.special && !movieOnly(g) && [...g.dubs.values()].some((d) => d.original)).map((g) => seasonNo(g.name) ?? 1));
     const head = [...members].sort((a, b) => rank(a) - rank(b) || a.base.length - b.base.length)[0];
     const groups = new Map();
     for (const w of members) {
@@ -432,8 +480,12 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
 
   // 3. 合輯與配音版：合輯幾乎被其他清單涵蓋就不列；名稱不同但對到同一個 AniList 編號、語言互補的季是同一季的配音版
   const ids = (g) => new Set([...g.dubs.values()].flatMap((d) => d.episodes.map((e) => e.id)));
+  // 跨作品的合輯（「Love Live！全系列」）：一半以上的集屬於其他作品的季，就不收，免得別部作品的集出現在這裡
+  const seasonOwner = new Map();
+  out.forEach((w) => w.groups.forEach((g) => { if (!g.special && !g.coll) ids(g).forEach((e) => seasonOwner.set(e, w.key)); }));
+  const crossWork = (key, g) => { const all = [...ids(g)]; return all.filter((e) => seasonOwner.has(e) && seasonOwner.get(e) !== key).length * 2 >= all.length; };
   return out.map(({ key, base, groups }) => {
-    let gs = [...groups.values()].filter((g) => !g.special).map((g) => ({ ...g, ids: ids(g) }));
+    let gs = [...groups.values()].filter((g) => !g.special && !(g.coll && crossWork(key, g))).map((g) => ({ ...g, ids: ids(g) }));
     for (const g of gs) if (!g.coll) g.coll = gs.some((o) => o !== g && o.ids.size < g.ids.size && [...o.ids].every((x) => g.ids.has(x)));
     // 合輯開頭那段單季都沒有的集，通常是頻道沒另外開清單的第一季（無職、進擊的巨人）：拆成一季，跟其他季一樣能選
     const inSeasons = new Set(gs.filter((g) => !g.coll).flatMap((g) => [...g.ids]));

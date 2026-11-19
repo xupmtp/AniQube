@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles, isMixed } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -68,13 +68,11 @@ test('classifyVideo：各種排除原因', () => {
   assert.equal(r({ twBlocked: true }).reason, 'region');
   assert.equal(r({ sec: 60 }).reason, 'length');
   assert.equal(r({ sec: 20000 }).reason, 'length');
-  assert.equal(r({ title: '#ULTRA會員搶先看《某》#3 (繁中字幕)' }).reason, 'early');
-  assert.equal(r({ title: '【會員搶先看】MULTI SUB《仙逆》EP 165' }, tx).ok, true); // 騰訊的搶先看是公開影片
-  assert.equal(r({ title: '【會員搶先看】某部動畫 EP3' }).reason, 'early');
+  assert.equal(r({ title: '【會員搶先看】MULTI SUB《仙逆》EP 165' }, tx).ok, true); // 標題的搶先看是宣傳字，會員限定只看會員清單
   assert.equal(r({ title: '《某》正式預告' }).reason, 'denied');
   assert.equal(r({ title: 'EP36 Trailer 預告｜《某》' }).reason, 'denied');
-  assert.equal(r({ sec: 600 }, tx).reason, 'length'); // 騰訊下限 15 分鐘
-  assert.equal(r({ sec: 600 }, muse).ok, true);
+  assert.equal(r({ sec: 600 }, tx).ok, true); // 所有頻道同一個下限（2 分鐘）
+  assert.equal(r({ title: '[OST]《淬光》• 迈利撒', sec: 200 }, tx).reason, 'denied');
   assert.equal(r({ sec: 1300 }, muse, { standalone: true }).ok, true);
   assert.equal(r({ sec: 1100 }, muse, { standalone: true }).reason, 'length');
 });
@@ -111,11 +109,9 @@ test('buildSeasons：過濾、排除混合清單、不收空清單', () => {
     { id: 'p4', title: '精選', videoIds: ['m1', 'm2', 'm3'] },
     { id: 'p5', title: '某【Ani-One ULTRA】', videoIds: ['mem'] },
   ];
-  const s = buildSeasons(playlists, videos, { ...cfg, excludeSeasons: [] }, ch('anione'), new Set(['mem']));
+  const s = buildSeasons(playlists, videos, cfg, ch('anione'), new Set(['mem']));
   assert.deepEqual(s.map((x) => x.playlistId), ['p1', 'p5'].filter((id) => id === 'p1'));
   assert.deepEqual(s[0].episodes.map((e) => e.n), [1, 2]);
-  const manual = buildSeasons([playlists[0]], videos, { ...cfg, excludeSeasons: ['p1'] }, ch('anione'), new Set());
-  assert.equal(manual.length, 0);
 });
 
 test('buildStandalones：只收不在季裡的長片', () => {
@@ -320,4 +316,57 @@ test('bundleNames：閱文「宣傳字 |《作品》」格式用《》裡的', (
   assert.deepEqual(bundleNames('🪐4K无删减 | S1-S5一口气 EP01-89 |《狐妖小红娘》Fox Spirit Matchmaker | 阅文动漫'), ['狐妖小红娘']);
   assert.deepEqual(bundleNames('🪐药族篇完整合集【无拼接一口气】|《斗破苍穹》Battle Through the Heavens | 阅文动漫'), ['斗破苍穹', '药族篇']);
   assert.deepEqual(bundleNames('膽大黨《高速婆婆篇》100分鐘 第01-04話 ｜Muse木棉花'), ['膽大黨', '高速婆婆篇']);
+});
+
+test('match：同名多筆時不挑試播；名稱已寫季數就不再用季數挑', () => {
+  const e = (id, title, type, episodes, year) => ({ title, type, episodes, synonyms: [], animeSeason: { year }, sources: [`https://anilist.co/anime/${id}`] });
+  const idx = buildIndex([e(1, '忘却バッテリー', 'ONA', 1, 2020), e(2, '忘却バッテリー', 'TV', 12, 2024),
+    e(3, '斗破苍穹 第二季', 'ONA', 12, 2018), e(4, '斗破苍穹 第二季', 'ONA', 3, 2019)]);
+  assert.equal(match('忘却バッテリー【Ani-One】', idx).anilistId, 2);
+  assert.equal(match('《斗破苍穹 第二季》Battle Through the Heavens S2 | 腾讯视频', idx).anilistId, 3);
+});
+
+test('isMixed：不相干的作品混在一份清單；同一部長篇的各篇章不算', () => {
+  const e = (id, title, rel = []) => ({ title, type: 'MOVIE', episodes: 1, synonyms: [], animeSeason: { year: 2020 }, sources: [`https://anilist.co/anime/${id}`], relatedAnime: rel.map((r) => `https://anilist.co/anime/${r}`) });
+  const idx = buildIndex([e(1, '甲'), e(2, '乙'), e(3, '丙'), e(11, '死神', [12]), e(12, '死神 千年血戰篇', [11, 13]), e(13, '死神 千年血戰篇 訣別譚', [12])]);
+  assert.equal(isMixed(['《甲》', '《乙》', '《丙》'], idx), true);
+  assert.equal(isMixed(['《死神》', '《死神 千年血戰篇》', '《死神 千年血戰篇 訣別譚》'], idx), false);
+  assert.equal(isMixed(['《甲》', '《乙》'], idx), false); // 兩部以下不算
+});
+
+test('groupWorks 系列鏈：劇場版、合輯不能串連不同系列；同一條鏈上的可以', () => {
+  const it = (id, name, o = {}) => ({ id, name, rawTitle: o.raw ?? name, lang: '日語', original: true, single: !!o.single, order: 0, aid: o.aid ?? null, a: o.fmt ? { format: o.fmt } : null, channel: { key: 'a' }, episodes: (o.eps ?? [id]).map((x) => ({ id: x })) });
+  const titles = (ws) => ws.map((w) => w.seasons.map((s) => s.name).sort().join('+')).sort();
+  // Love Live! → 劇場版 → Sunshine：AniList 是續作關係，但中間隔著劇場版，兩個系列在不同的鏈上 → 劇場版只歸入一部
+  const ll = groupWorks([it('a', 'Love Live!', { aid: 1 }), it('m', '劇場版 Love Live!', { aid: 2, single: true, fmt: 'MOVIE' }), it('s', 'Sunshine', { aid: 3 })],
+    {}, { 2: [1, 3] }, {}, [], new Map([[1, 'LL'], [2, 'M'], [3, 'SS']]));
+  assert.deepEqual(titles(ll), ['Love Live!+劇場版 Love Live!', 'Sunshine']);
+  // 「全集」合輯連起 S1 和 The Final Season：同一條鏈 → 合併
+  const aot = groupWorks([it('s1', '進擊的巨人', { aid: 10, eps: ['e1', 'e2'] }), it('f', 'The Final Season', { aid: 11, eps: ['e9'] }),
+    it('all', '進擊的巨人 全集', { raw: '進擊的巨人(全部集數)', aid: 10, eps: ['e1', 'e2', 'e9'] })], {}, {}, {}, [], new Map([[10, 'A'], [11, 'A']]));
+  assert.equal(aot.length, 1);
+  // 同樣的合輯連起不同鏈的兩部（劍姬神聖譚）→ 不合併
+  const dan = groupWorks([it('d', '地下城', { aid: 20, eps: ['x1'] }), it('k', '劍姬神聖譚', { aid: 21, eps: ['x2'] }),
+    it('c', '地下城系列', { raw: '地下城系列', aid: 20, eps: ['x1', 'x2'] })], {}, {}, {}, [], new Map([[20, 'D'], [21, 'K']]));
+  assert.equal(dan.length, 2);
+  // 重製版（apart）連名稱相似也不併
+  const tri = groupWorks([it('t', 'TRIGUN STAMPEDE', { aid: 30 }), it('u', 'TRIGUN STAMPEDE R', { aid: 31 })], {}, {}, { 30: [31] }, [], new Map());
+  assert.equal(tri.length, 2);
+});
+
+test('groupWorks：只有單篇的作品也能被歸入；兩個字的作品名要接空白或標點', () => {
+  const it = (id, name, o = {}) => ({ id, name, rawTitle: name, lang: '日語', original: true, single: true, order: 0, aid: null, channel: { key: 'a' }, bundle: o.bundle, episodes: [{ id }] });
+  const b = (id, name) => it(id, name, { bundle: { name, names: [name], a: 1, b: 10, season: null } });
+  const ws = groupWorks([it('s1', '完美世界• 柳神特別篇'), b('b1', '完美世界'), it('i1', '冰菓 OVA'), it('i2', '冰菓子的日常')]);
+  const by = Object.fromEntries(ws.map((w) => [w.base, w.seasons.length]));
+  assert.equal(by['完美世界'], 2);           // 合集與特別篇同一部
+  assert.equal(by['冰菓子的日常'], 1);         // 不會被「冰菓」吸走
+});
+
+test('groupWorks：跨作品的合輯不收；只含劇場版的清單不算系列', () => {
+  const it = (id, name, o = {}) => ({ id, name, rawTitle: o.raw ?? name, lang: '日語', original: true, single: false, order: 0, aid: o.aid ?? null, a: o.fmt ? { format: o.fmt } : null, channel: { key: 'a' }, episodes: (o.eps ?? [id]).map((x) => ({ id: x })) });
+  const ws = groupWorks([it('a', 'Love Live!', { eps: ['l1', 'l2'] }), it('s', 'Sunshine', { eps: ['s1', 's2', 's3'] }),
+    it('z', 'Love Live!全系列', { raw: 'Love Live！全系列', eps: ['l1', 's1', 's2', 's3'] })], {}, {}, { }, [], new Map());
+  const ll = ws.find((w) => w.base === 'Love Live!');
+  assert.ok(!ll || ll.seasons.every((s) => s.name !== 'Love Live!全系列')); // 大半是 Sunshine 的集 → 不收
 });

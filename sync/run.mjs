@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { zstdDecompressSync } from 'node:zlib';
-import { buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
+import { buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, isMixed, parseHints, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
 import { BLOCKED_GENRES, GENRES, TAGS } from './taxonomy.mjs';
 
 const KEY = process.env.YOUTUBE_API_KEY;
@@ -111,7 +111,7 @@ const rotation = (id) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>>
 
 function buildChannel(ch, { members: m, uploadIds, lists, videos: v }) {
   const members = new Set(m), videos = new Map(v.map((x) => [x.id, x]));
-  const seasons = buildSeasons(lists, videos, cfg, ch, members);
+  const seasons = buildSeasons(lists, videos, cfg, ch, members).filter((s) => !isMixed(s.episodes.map((e) => e.title), index));
   const used = new Set(seasons.flatMap((s) => s.episodes.map((e) => e.id)));
   const uploads = uploadIds.map((id) => videos.get(id)).filter(Boolean);
   const singles = buildStandalones(uploads, used, cfg, ch, members);
@@ -177,15 +177,57 @@ else {
 const channels = cfg.channels.filter((ch) => fetched[ch.key] || console.warn(`快取裡沒有頻道 ${ch.name}，先略過；不加 USE_RAW_CACHE 完整跑一次就會有`));
 const raw = channels.flatMap((ch) => buildChannel(ch, fetched[ch.key]));
 
-// 對應：人工對應表優先（null = 刻意不對應），其次自動
+// AniList 關係快取（sync/cache/anilist.json，CI 存在 data-cache 分支）：形式、每集長度、關係。
+// 續作鏈要走到片庫以外的條目（片庫缺季時也連得起來），所以另外查、存起來；30 天後重查（docs/adr/0007）
+const relFile = 'sync/cache/anilist.json';
+const REL = existsSync(relFile) ? JSON.parse(readFileSync(relFile, 'utf8')) : {};
+const RELQ = `query($ids:[Int]){Page(perPage:50){media(id_in:$ids,type:ANIME){id format duration relations{edges{relationType node{id format}}}}}}`;
+async function loadRel(ids) {
+  const need = [...new Set(ids)].filter((id) => id && !(REL[id] && Date.now() - REL[id].at < 30 * 864e5));
+  for (let i = 0; i < need.length; i += 50) {
+    let r;
+    for (let k = 0; k < 4; k++) {
+      r = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: RELQ, variables: { ids: need.slice(i, i + 50) } }) });
+      if (r.status !== 429) break;
+      await sleep(60000);
+    }
+    if (!r.ok) throw new Error(`AniList ${r.status}`);
+    for (const m of (await r.json()).data.Page.media) REL[m.id] = { at: Date.now(), f: m.format, d: m.duration, e: (m.relations?.edges ?? []).map((x) => [x.relationType, x.node.id, x.node.format]) };
+    await sleep(800);
+  }
+}
+const SERIES = ['TV', 'ONA', 'TV_SHORT'];
+const edges = (id, types, fmts) => (REL[id]?.e ?? []).filter(([t, , f]) => types.includes(t) && (!fmts || fmts.includes(f))).map(([, n]) => n);
+
+// 對應：人工對應表優先（null = 刻意不對應），其次自動。自動結果也算出來，人工表裡已經跟規則一樣的列進 report.redundant
+const GUESS = ['first', 'season', 'split', 'noseason'];
+for (const s of raw) s.auto = match(s.bundle ? `《${s.bundle.name}》` : s.rawTitle, index);
+await loadRel(raw.map((s) => s.auto?.anilistId));
+for (const s of raw) {
+  if (!s.auto || s.bundle) continue;
+  const h = parseHints(s.rawTitle);
+  // 續作鏈：標題寫第 N 季，對到的卻是沒有前作的第一季 → 沿 AniList 的下一季往後走 N−1 步
+  if (GUESS.includes(s.auto.how) && h.season > 1 && !edges(s.auto.anilistId, ['PREQUEL'], SERIES).length) {
+    let id = s.auto.anilistId;
+    for (let i = 0; i < h.season - 1 && id; i++) { await loadRel([id]); id = edges(id, ['SEQUEL'], SERIES)[0]; }
+    if (id) s.auto = { anilistId: id, how: 'chain' };
+  }
+  // 形式：單篇寫劇場版、清單寫 OVA，對到的卻不是 → 從它的關係裡挑那個形式的（最早的一筆）
+  const want = h.movie && s.single ? 'MOVIE' : /\bOVA\b|\bOAD\b/.test(s.rawTitle) ? 'OVA' : null;
+  if (want && REL[s.auto.anilistId]?.f !== want) {
+    const alt = edges(s.auto.anilistId, ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF', 'PARENT', 'OTHER'], [want]).sort((x, y) => x - y)[0];
+    if (alt) s.auto = { anilistId: alt, how: want === 'MOVIE' ? 'movie' : 'ova' };
+  }
+}
+const report = { unmatched: [], guessed: [], dropped: [], redundant: [] };
 for (const s of raw) {
   const k = s.playlistId;
-  if (k in manual) s.link = manual[k] == null ? null : { anilistId: manual[k], how: 'manual' };
-  else s.link = match(s.bundle ? `《${s.bundle.name}》` : s.rawTitle, index);
+  if (!(k in manual)) { s.link = s.auto; continue; }
+  s.link = manual[k] == null ? null : { anilistId: manual[k], how: 'manual' };
+  if (s.auto && s.auto.anilistId === manual[k] && !GUESS.includes(s.auto.how)) report.redundant.push(k);
 }
 const meta = await anilist([...new Set(raw.map((s) => s.link?.anilistId).filter(Boolean))]);
 
-const report = { unmatched: [], guessed: [], dropped: [] };
 const ORIGINAL = { JP: '日語', CN: '國語', KR: '韓語' }; // 沒標配音的清單就是原聲
 const genresOf = (a) => (a?.genres ?? []).filter((g) => GENRES[g]).map((g) => GENRES[g]);
 const tagsOf = (a) => (a?.tags ?? []).filter((t) => !t.isMediaSpoiler && t.rank >= 60 && TAGS[t.name]).map((t) => TAGS[t.name]);
@@ -210,11 +252,44 @@ raw.forEach((s, order) => {
 
 // 作品：卡片顯示最新一季的資料、年份用首季；篩選與搜尋用所有季的聯集（docs/adr/0003）
 // AniList 續集／前傳：名稱差很多的續作（「續」「完」「The Final Season」）靠這個併進同一部作品
+// 系列鏈：沿續作關係、不經過劇場版能連到的條目是同一個系列（docs/adr/0007）
+const libIds = [...new Set(items.filter((it) => it.aid).map((it) => it.aid))];
+const chainUp = new Map(), chainFind = (x) => { while (chainUp.has(x) && chainUp.get(x) !== x) x = chainUp.get(x); return x; };
+{
+  const seen = new Set(libIds);
+  let front = [...libIds];
+  while (front.length && seen.size < 20000) {
+    await loadRel(front);
+    const next = [];
+    for (const id of front) {
+      if (REL[id]?.f === 'MOVIE') continue;
+      for (const n of edges(id, ['SEQUEL', 'PREQUEL'], [...SERIES, 'OVA', 'SPECIAL', 'MUSIC', null])) {
+        const [a, b] = [chainFind(id), chainFind(n)];
+        if (a !== b) chainUp.set(a, b);
+        if (!seen.has(n)) { seen.add(n); next.push(n); }
+      }
+    }
+    front = next;
+  }
+}
+// OVA、特別篇、每集 10 分鐘以下的外傳歸入本傳（CONTEXT.md「外傳」）：跟本傳同一條鏈
+const longSeries = (id, f = REL[id]?.f) => SERIES.includes(f) && !(REL[id]?.d > 0 && REL[id].d <= 10);
+const minorSide = (x) => (REL[x]?.e ?? []).flatMap(([t, y, f]) =>
+  ((t === 'SIDE_STORY' || t === 'SPIN_OFF') && f !== 'MOVIE' && !longSeries(y, f)) || (t === 'PARENT' && !longSeries(x)) ? [y] : []);
+for (const x of libIds) for (const y of minorSide(x)) { const [a, b] = [chainFind(x), chainFind(y)]; if (a !== b) chainUp.set(a, b); }
+const chainOf = new Map(libIds.map((id) => [id, chainFind(id)]));
+writeFileSync(relFile, JSON.stringify(REL));
+// 續作關係：名稱差很多的續作（「續」「完」「The Final Season」）靠這個併進同一部作品
+// 否決：重製版、平行系列（ALTERNATIVE）；系列形式、每集超過 10 分鐘的外傳（SIDE_STORY、SPIN_OFF；PARENT 是反方向）
 const related = {}, apart = {};
-const rel = (m, types) => (m.relations?.edges ?? []).filter((e) => types.includes(e.relationType)).map((e) => e.node.id);
-for (const [id, m] of meta) {
-  related[id] = rel(m, ['SEQUEL', 'PREQUEL']);
-  apart[id] = rel(m, ['SPIN_OFF', 'SIDE_STORY', 'ALTERNATIVE', 'PARENT']); // 模糊比對不併：外傳、衍生、平行作品
+const addApart = (x, y) => { (apart[x] ??= []).push(y); (apart[y] ??= []).push(x); };
+for (const x of libIds) {
+  related[x] = [...edges(x, ['SEQUEL', 'PREQUEL']), ...minorSide(x)];
+  for (const [t, y, f] of REL[x]?.e ?? []) {
+    if (t === 'ALTERNATIVE') addApart(x, y);
+    if ((t === 'SIDE_STORY' || t === 'SPIN_OFF') && longSeries(y, REL[y]?.f ?? f)) addApart(x, y);
+    if (t === 'PARENT' && longSeries(x)) addApart(x, y);
+  }
 }
 
 // 片源排序：同一季有好幾個頻道時，站內能播的集數多的排前面（預設播放），其次集數，再其次 sources.json 的頻道順序；
@@ -236,7 +311,7 @@ const bundleLabel = ({ a, b, season }) => (a != null ? `${season ? `第 ${season
 const works = [], workFiles = [];
 report.fuzzy = [];
 {
-  for (const w0 of groupWorks(items, manualWorks, related, apart, report.fuzzy)) {
+  for (const w0 of groupWorks(items, manualWorks, related, apart, report.fuzzy, chainOf)) {
     // 合集依季、集數由小到大排在最後
     const kept = pickBundles(w0.seasons), at = ({ season, a: n }) => (season ?? 0) * 1e5 + (n ?? 0);
     const ordered = [...kept.filter((x) => !x.bundle), ...kept.filter((x) => x.bundle).sort((p, q) => at(p.bundle) - at(q.bundle))];

@@ -11,8 +11,8 @@ test('run.mjs 端對端（假資料）', () => {
   const dir = mkdtempSync(join(tmpdir(), 'aniqube-'));
   const cfg = JSON.parse(readFileSync(join(root, 'sources.json')));
   cfg.channels = [
-    { key: 'a', id: 'UCtestA', name: 'A 頻道', origin: 'JP', minSec: 120 },
-    { key: 'b', id: 'UCtestB', name: 'B 頻道', origin: 'CN', minSec: 900 },
+    { key: 'a', id: 'UCtestA', name: 'A 頻道', origin: 'JP' },
+    { key: 'b', id: 'UCtestB', name: 'B 頻道', origin: 'CN' },
   ];
   writeFileSync(join(dir, 'sources.json'), JSON.stringify(cfg));
   const out = execFileSync('node', ['--import', join(root, 'sync/mock-fetch.mjs'), join(root, 'sync/run.mjs')], { cwd: dir, env: { ...process.env, YOUTUBE_API_KEY: 'test' }, encoding: 'utf8' });
@@ -26,13 +26,13 @@ test('run.mjs 端對端（假資料）', () => {
   const a = by['某部動畫'];
   assert.deepEqual(a.genres, ['動作']);                                         // 不在對照表的題材不顯示
   assert.deepEqual(a.tags, ['異世界']);                                         // rank<60 的標籤不收
-  assert.equal(a.eps, 3);                                                       // a1 a2 + 站外集 noEmb；扣掉 PV/會員/搶先看/台灣封鎖
+  assert.equal(a.eps, 4);                                                       // a1 a2 a3 + 站外集 noEmb；扣掉 PV/會員/台灣封鎖（標題寫搶先看的 a3 是公開影片，會員限定只看會員清單）
   assert.equal(a.seasons, 1);
   assert.equal(a.score, 81);
   assert.equal(a.anilistId, 100);
   const detail = read(`works/${a.id}.json`);
   const eps = detail.seasons[0].dubs[0].episodes;
-  assert.deepEqual(eps.map((e) => e.id), ['a1', 'a2', 'noEmb']);
+  assert.deepEqual(eps.map((e) => e.id), ['a1', 'a2', 'a3', 'noEmb']);
   assert.equal(eps.find((e) => e.id === 'noEmb').ext, true);
   assert.equal(detail.desc, '一段 簡介');
   assert.equal(detail.members, 'plA1');                                         // 清單裡有會員限定集 → 作品頁提示

@@ -27,6 +27,10 @@ npm run rebuild             # 不需要 YouTube 金鑰、不花配額
 
 key 依字母排序、一個空格縮排（`JSON.stringify(obj, null, 1)`），檔尾換行。
 
+## 清掉多餘的人工對應
+
+`report.json` 的 `redundant` 列出人工對應表裡、規則已經算出同一個結果的項目，直接從 `manual-matches.json` 刪掉。
+
 ## 檢查模糊合併
 
 `report.json` 的 `fuzzy` 列出只靠名稱相似度（Dice ≥ 0.8）合併的作品名配對。逐一確認是同一部作品；不是的（外傳、換主角的新系列）在 `manual-works.json` 把其中一邊的清單指定為自己的作品名拆開，並在提交訊息裡註明。

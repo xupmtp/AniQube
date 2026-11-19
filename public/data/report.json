@@ -1,7 +1,12 @@
 {
- "generatedAt": "2026-11-19T01:56:08.082Z",
- "units": 1947,
+ "generatedAt": "2026-11-19T02:53:56.123Z",
+ "units": 0,
  "unmatched": [
+  {
+   "id": "PLZi7HsS43BmI",
+   "title": "Love Live！全系列",
+   "eps": 143
+  },
   {
    "id": "PL12UaAf_xzfpJ5cZMFVbaX8sczJfumXTd",
    "title": "《人中之龍 Powered by 日本統一》｜Muse木棉花 動畫 線上看",
@@ -38,17 +43,49 @@
    "eps": 2
   },
   {
+   "id": "PLSxp4284QcPU",
+   "title": "《死灵法师！我即是天灾》Necromancer: I Am the Scourge | 腾讯视频 - 动漫",
+   "eps": 1
+  },
+  {
+   "id": "PLHI6-862pjU4",
+   "title": "《万古神帝》God of Eternity | 腾讯视频 - 动漫",
+   "eps": 1
+  },
+  {
+   "id": "PLGmjIOE0c5Fo",
+   "title": "《顾长歌：我！天命大反派》The Heavenly Fate Villain | 腾讯视频 - 动漫",
+   "eps": 1
+  },
+  {
    "id": "PL2ql078AibHUrr_w6i95x1ymrJwJOV2IH",
    "title": "🐷《轉生為白豬貴族的我，運用前世記憶養育雛鳥般的弟弟》｜2025年4月新番｜曼迪Mighty TV",
    "eps": 12
+  },
+  {
+   "id": "PL2ql078AibHUOp1H0wVVWefIYBKQcM-RJ",
+   "title": "暴走哈姆醬【繁中字幕】",
+   "eps": 55
   }
  ],
- "guessed": [],
+ "guessed": [
+  {
+   "id": "PLxOs22nkVmnJ_dgTuecVIaIYW2iXOOiML",
+   "title": "【Members Premiere 会员抢先看】《灵剑尊》Spirit Sword Sovereign | 楚行云万仞归元，初生之虎无惧天下挑战 | 腾讯视频 - 动漫",
+   "anilistId": 107882,
+   "how": "first"
+  }
+ ],
  "dropped": [],
+ "redundant": [],
  "fuzzy": [
   [
    "小書痴的下剋上:為了成為圖書管理員不擇手段!",
    "小書痴的下剋上 為了成為圖書管理員不擇手段！領主的養女"
+  ],
+  [
+   "Love Live！全",
+   "Love Live!"
   ],
   [
    "最狂輔助職業【話術士】世界最強戰團聽我號令",
@@ -71,29 +108,57 @@
    "天竺鼠車車 駕訓班篇"
   ],
   [
+   "請問您今天要來點兔子嗎？",
+   "請問您今天要來點兔子嗎？ BLOOM"
+  ],
+  [
    "槍彈辯駁3未來編",
    "槍彈辯駁3未來篇"
   ],
   [
+   "Fate/kaleid liner 魔法少女☆伊莉雅3rei!!",
+   "Fate/kaleid liner 魔法少女☆伊莉雅"
+  ],
+  [
    "為美好的世界獻上祝福！3",
    "為美好的世界獻上祝福！2"
+  ],
+  [
+   "機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster",
+   "機動戰士鋼彈SEED Special Edition II 遙遠的拂曉 HD Remaster"
+  ],
+  [
+   "機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster",
+   "機動戰士鋼彈SEED Special Edition 完結篇 鳴動的宇宙 HD Remaster"
+  ],
+  [
+   "機動戰士鋼彈SEED DESTINY Special Edition 破碎的世界 HD Remaster",
+   "機動戰士鋼彈SEED DESTINY Special Edition II 各自的劍 HD Remaster"
+  ],
+  [
+   "機動戰士鋼彈SEED DESTINY Special Edition 破碎的世界 HD Remaster",
+   "機動戰士鋼彈SEED DESTINY Special Edition 完結編 自由的代價 HD Remaster"
+  ],
+  [
+   "機動戰士鋼彈SEED DESTINY Special Edition 破碎的世界 HD Remaster",
+   "機動戰士鋼彈SEED DESTINY Special Edition III 命運的地獄之火 HD Remaster"
   ]
  ],
  "desc": {
   "muse": {
-   "zh": 298,
-   "en": 8
+   "zh": 295,
+   "en": 6
   },
   "anione": {
-   "zh": 249,
+   "zh": 248,
    "en": 3
   },
   "tencent": {
-   "zh": 74,
-   "en": 11
+   "zh": 89,
+   "en": 9
   },
   "mighty": {
-   "zh": 24,
+   "zh": 25,
    "en": 0
   },
   "yuewen": {
@@ -107,31 +172,27 @@
   "被解僱的暗黑士兵開始了慢生活的第二人生",
   "在下“英臺”",
   "修羅武神",
-  "獵人劇場版【最終任務】",
-  "擅長逃跑的殿下 第9.5話【總集篇】",
-  "【木棉花電影院】讓我聽見愛的歌聲",
-  "電影版-怪醫黑傑克-The Movie",
-  "企鵝公路【木棉花電影院】",
-  "槍彈辯駁3絕望篇+希望篇",
-  "不幸職業其實是最強的",
-  "機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster",
-  "完美世界• 柳神特別篇",
   "誅仙3",
-  "散修之王",
   "武庚紀",
   "萬界仙蹤",
-  "力拔山河兮子唐",
-  "史上最強男主角",
+  "妖怪名單",
   "七界第一仙",
   "人間最得意",
-  "妖怪名單"
+  "史上最強男主角",
+  "力拔山河兮子唐",
+  "企鵝公路【木棉花電影院】",
+  "不幸職業其實是最強的",
+  "槍彈辯駁3絕望篇+希望篇",
+  "擅長逃跑的殿下 第9.5話【總集篇】",
+  "【木棉花電影院】讓我聽見愛的歌聲",
+  "機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster"
  ],
  "counts": {
-  "works": 696,
-  "seasons": 2351,
-  "unmatched": 8,
-  "guessed": 0,
-  "fuzzy": 8,
-  "moved": 21
+  "works": 704,
+  "seasons": 2379,
+  "unmatched": 13,
+  "guessed": 1,
+  "fuzzy": 16,
+  "moved": 30
  }
 }
