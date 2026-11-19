@@ -667,6 +667,17 @@ export function groupWorks(items, override = {}, related = {}, apart = {}, log =
 const META = /Muse木棉花|木棉花|^\s*Muse\s*$|腾讯视频|騰訊視頻|阅文动漫|閱文動畫|曼迪|Mighty TV|Ani-One|官方Official|MULTI ?SUB|ENG SUB|^\s*(动漫|動漫|動畫 ?線上看|線上看)\s*$|新番上[线線]/i;
 const TAG = /会员|會員|搶先|抢先|字幕|配音|原聲|原声|雙語|双语|日語|國語|粵語|日语|国语|粤语|中日|限時|限时|Ani-One|免費|免费/;
 
+/** 去掉落單的括號：沒有開頭的「)」「】」、沒有結尾的「(」「【」 */
+const PAIRS = { ')': '(', '）': '（', '】': '【', '》': '《' };
+function balance(t) {
+  const out = [], open = [];
+  for (const c of t) {
+    if (Object.values(PAIRS).includes(c)) { open.push(out.length); out.push(c); } else if (PAIRS[c]) { const i = open.findLastIndex((k) => out[k] === PAIRS[c] || (PAIRS[c] === '(' && out[k] === '（') || (PAIRS[c] === '（' && out[k] === '(')); if (i >= 0) { open.splice(i, 1); out.push(c); } } else out.push(c);
+  }
+  for (const i of open) out[i] = '';
+  return out.join('');
+}
+
 /**
  * 一季（一個配音版）每一集的副標：去掉頻道與語言標記、《作品名》、作品名、英文片名、集數與季數，
  * 再去掉同一季每一集都一樣的開頭與結尾（片名、標語）。names：作品名與季名（繁簡都比對）
@@ -680,7 +691,8 @@ export function episodeSubs(titles, names = [], cn = false) {
       for (const v of variants) {
         if (v.length >= 2 && x.startsWith(v)) { x = x.slice(v.length).trim(); again = true; break; }
         let k = 0; while (k < v.length && x[k] === v[k]) k++;
-        if (k >= 6 && /^[\s～~:：\-—、，,]|^\d/.test(x.slice(k))) { x = x.slice(k).trim(); again = true; break; }
+        while (k > 0 && /[第【《(（「]/.test(x[k - 1])) k--; // 「第」、開頭括號留給後面（「鑽石王牌act2 第27話」對上「鑽石王牌act2 第二季」、「暴走哈姆醬【第2回】」）
+        if (k >= 6 && /^[\s～~:：\-—、，,第]|^\d/.test(x.slice(k))) { x = x.slice(k).trim(); again = true; break; }
       }
     }
     return x.replace(/^\d{2,4}(?=\D)/, '').trim(); // 開頭的「001」是集數
@@ -688,14 +700,17 @@ export function episodeSubs(titles, names = [], cn = false) {
   const one = (raw) => {
     let s = raw.replace(/[\p{Extended_Pictographic}\u{FE0F}\u200D]/gu, '')
       .replace(/【([^】]*)】/g, (m, x) => (TAG.test(x) ? ' ' : m)).replace(/[(（][^)）]*[)）]/g, (m) => (TAG.test(m) ? ' ' : m)); // 先拿掉標籤，免得被「|」切斷
-    s = s.split(/\s*[｜|]\s*|\s{3,}/).filter((seg) => seg.trim() && !META.test(seg)).map(stripHead).join(' ');
+    s = s.split(/\s*[｜|]\s*|\s{3,}/).filter((seg) => seg.trim() && !META.test(seg) && !(TAG.test(seg) && [...seg.trim()].length <= 10)).map(stripHead).join(' ');
     s = s.replace(/【([^】]*)】/g, (m, x) => (TAG.test(x) || /^第?\s*\d+\s*[回話话集]?$/.test(x) ? ' ' : ` ${x} `)).replace(/[(（][^)）]*[)）]/g, (m) => (TAG.test(m) ? ' ' : m));
     s = s.replace(/《[^》]*》/g, ' ');
-    s = s.replace(/第\s*[一二三四五六七八九十]{1,3}\s*[集话話]|第\s*\d+\s*(?:[-~～]\s*\d+\s*)?[話话集回]|\bEP\.?\s*\d+(?:\s*[-~]\s*(?:EP)?\s*\d+)?|#\s*\d+|首播\d*分鐘/gi, ' ')
+    s = s.replace(/第\s*[一二三四五六七八九十]{1,3}\s*[集话話]|第\s*\d+\s*(?:[-~～]\s*\d+\s*)?[話话集回]|\bEP\.?\s*\d+(?:\s*[-~]\s*(?:EP)?\s*\d+)?|#\s*\d+|首播\d*分鐘|\b4K\b/gi, ' ')
       .replace(/第\s*[一二三四五六七八九十\d]+\s*季|(?<![A-Za-z])S\d+(?!\d)|Season\s*\d+/gi, ' ');
     // 中文副標旁邊的英文片名（「Slay The Gods」）不要；整段都是英文的保留
     if (/\p{Script=Han}/u.test(s)) s = s.replace(/(?:^|\s)[A-Za-z][A-Za-z0-9'’:!?&.,\- ]{6,}(?=\s|$)/g, ' ');
+    s = balance(s.replace(/[(（【《『][\s\d,，、]*[)）】》』]/g, ' ')); // 「(S2)」「（第六季EP1）」拿掉內容後的空括號、落單的括號
     s = s.replace(/[「」]/g, ' ').replace(/\s+/g, ' ').replace(/^[\s\-—:：、,，.。·•~～/／]+|[\s\-—:：、,，.·•~～/／]+$/g, '').trim();
+    s = s.replace(/^\d{1,4}(?:\s+|$)/, ''); // 開頭殘留的集數（「作戰06【bug】」「目標088」）
+    if (TAG.test(s) && [...s].length <= 10) s = ''; // 只剩標籤（頻道打錯的「第9字幕 | 日語原聲)」）
     return cn ? toTrad(s) : s;
   };
   const subs = titles.map(one);
@@ -704,11 +719,17 @@ export function episodeSubs(titles, names = [], cn = false) {
     let p = subs.reduce((n, s) => Math.min(n, pre(subs[0], s)), Infinity);
     let q = subs.reduce((n, s) => Math.min(n, pre([...subs[0]].reverse().join(''), [...s].reverse().join(''))), Infinity);
     if (subs.every((s) => s === subs[0])) return subs.map(() => '');
-    p = p >= 2 ? p : 0; q = q >= 2 ? q : 0;
-    const cut = subs.map((s) => s.slice(p, s.length - q).replace(/^[\s\-—:：、,，·•|｜]+|[\s\-—:：、,，·•|｜]+$/g, '').trim());
-    // 同一句在一季裡出現 3 次以上、超過三成的集都是它：是宣傳語不是副標
+    // 只在詞的邊界切：前後是空白、標點，或接著數字（不切斷數字：「目標088」切在「目標」後）；
+    // 「我要招架牛」「我要招架龍」的「我要招架」是集名的一部分，不切
+    const sep = (c) => c === undefined || /[\s\p{P}\p{S}]/u.test(c);
+    while (p > 0 && /\d/.test(subs[0][p - 1])) p--;
+    while (q > 0 && /\d/.test(subs[0][subs[0].length - q])) q--;
+    if (p < 2 || !subs.every((s) => sep(s[p - 1]) || sep(s[p]) || /\d/.test(s[p]))) p = 0;
+    if (q < 2 || !subs.every((s) => sep(s[s.length - q]) || sep(s[s.length - q - 1]))) q = 0;
+    const cut = subs.map((s) => s.slice(p, s.length - q).replace(/^[\s\-—:：、,，·•|｜]+|[\s\-—:：、,，·•|｜]+$/g, '').trim().replace(/^\d{1,4}(?:\s+|$)/, ''));
+    // 同一句在一季裡出現 3 次以上：是宣傳語（「鐵騎龍騰，續寫紫川傳奇！」）或英文片名（「Almighty Mage」），不是副標
     const count = new Map(); cut.forEach((s) => count.set(s, (count.get(s) ?? 0) + 1));
-    return cut.map((s) => (s && count.get(s) >= 3 && count.get(s) > cut.length * 0.3 ? '' : s));
+    return cut.map((s) => (s && count.get(s) >= 3 ? '' : s));
   }
   return subs;
 }

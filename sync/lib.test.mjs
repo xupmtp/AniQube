@@ -460,3 +460,34 @@ test('playableEps：沒季數的季另外算', () => {
   const s = (no, name, ns) => ({ kind: 'season', no, name, dubs: [{ episodes: ns.map((n) => ({ n })) }] });
   assert.equal(playableEps([s(1, '第 1 季', [1]), s(null, 'I am a hero too', [1])]), 2);
 });
+
+test('episodeSubs：作品名不切到「第」、空括號、4K 與斷掉的標籤、開頭的集數、重複的英文片名', () => {
+  const m = (t) => `【日語】鑽石王牌act2 第${t}｜Muse木棉花 動畫 線上看`;
+  assert.deepEqual(episodeSubs([m('27話【The Note】'), m('28話【打擊順序】'), m('29話【BLOOM OF YOUTH】')], ['鑽石王牌', '鑽石王牌act2 第二季']), ['The Note', '打擊順序', 'BLOOM OF YOUTH']);
+  const s = (n, t) => `香格里拉·開拓異境～糞作獵手挑戰神作～(S2) 第${n}話【${t}】｜Muse木棉花 動畫 線上看`;
+  assert.deepEqual(episodeSubs([s(26, '半裸與快樂的夥伴們'), s(27, '毫不通融的守衛'), s(28, '雙翼相擊')], ['香格里拉·開拓異境～糞作獵手挑戰神作']), ['半裸與快樂的夥伴們', '毫不通融的守衛', '雙翼相擊']);
+  const q = (n) => `🔮 MULTISUB |《全职法师》EP${60 + n}（第六季EP${n}） | 阅文动漫 | 官方Official【会员专享热门动画剧集抢先看】`;
+  assert.deepEqual(episodeSubs([q(1), q(2), q(3)], ['全職法師'], true), ['', '', '']);
+  const a = (n, x = '') => `🔮 MULTISUB |《全职法师》Almighty Mage | EP${n}${x} | 阅文动漫 | 官方Official`;
+  assert.deepEqual(episodeSubs([a(47), a(48), a(49, '（S5 EP01）'), a(50), ...Array.from({ length: 12 }, (_, i) => `《全职法师》EP${i + 1} | 第${i + 1}个副标题`)], ['全職法師'], true).slice(0, 4), ['', '', '', '']);
+  assert.deepEqual(episodeSubs(['【会员抢先看】4K | MULTI SUB《仙逆》Renegade Immortal EP 135 | 一元购薅走天价神丹', '【会员抢先看】4K | MULTI SUB《仙逆》Renegade Immortal EP 136 | 战幻眉', '4K | MULTI SUB《仙逆》Renegade Immortal EP 137 | 一刀剑气'], ['仙逆'], true), ['一元購薅走天價神丹', '戰幻眉', '一刀劍氣']);
+  assert.deepEqual(episodeSubs(['《機動戰士鋼彈 鐵血孤兒》第9字幕 | 日語原聲)【Ani-One】', '《機動戰士鋼彈 鐵血孤兒》第10話【Ani-One】', '《機動戰士鋼彈 鐵血孤兒》第11話【Ani-One】'], ['機動戰士鋼彈 鐵血孤兒']), ['', '', '']);
+  const r = (n, t) => `【日語】家庭教師 HITMAN REBORN！目標${n}【${t}】｜Muse木棉花`;
+  assert.deepEqual(episodeSubs([r('088', '73'), r('089', '大空的指環'), r('090', 'X')], ['家庭教師 HITMAN REBORN！']), ['', '大空的指環', 'X']);
+  assert.deepEqual(episodeSubs(['夜櫻家大作戰 作戰06【bug】｜Muse木棉花', '夜櫻家大作戰 作戰07【長男】｜Muse木棉花', '夜櫻家大作戰 作戰08【夜櫻】｜Muse木棉花'], ['夜櫻家大作戰']), ['bug', '長男', '夜櫻']);
+});
+test('episodeSubs：作品名對到「第」時退一字、括號裡只剩數字、重複 3 次的句子、每集都有的季名', () => {
+  const m = (t) => `【日語】鑽石王牌act2 第${t}｜Muse木棉花`;
+  assert.deepEqual(episodeSubs([m('27話【The Note】'), m('28話【打擊順序】'), m('29話【GET BACK】')], ['鑽石王牌', '鑽石王牌act2 第二季', '第 2 季 act2']), ['The Note', '打擊順序', 'GET BACK']);
+  assert.deepEqual(episodeSubs(['《全职法师》EP25（S3 01） | 阅文动漫', '《全职法师》EP26（S3 02） | 阅文动漫', '《全职法师》EP27（S3 03）| 阅文动漫'], ['全職法師'], true), ['', '', '']);
+  const z = (n, t) => `ENG SUB《紫川》第2季 Purple River S2 | EP0${n} | ${t} | 腾讯视频-动漫`;
+  assert.deepEqual(episodeSubs([z(1, '铁骑龙腾'), z(2, '铁骑龙腾'), z(3, '铁骑龙腾'), ...[4, 5, 6, 7, 8, 9, 10, 11].map((n) => z(n, `第${n}集的标题`))], ['紫川'], true).slice(0, 3), ['', '', '']);
+  assert.deepEqual(episodeSubs(['《虛構推理》迷你動畫 第01話【甲】', '《虛構推理》迷你動畫 第02話【乙】', '《虛構推理》迷你動畫 第03話【丙】'], ['虛構推理', '迷你動畫']), ['甲', '乙', '丙']);
+});
+test('episodeSubs：共同開頭去掉後只剩一個字就不去', () => {
+  const t = (x) => `我要【招架】一切～反誤解的世界最強想成為冒險家～ 第01話【${x}】｜Muse木棉花`;
+  assert.deepEqual(episodeSubs([t('我要招架牛'), t('我要招架龍'), t('我要招架魔族')], ['我要【招架】一切～反誤解的世界最強想成為冒險家']), ['我要招架牛', '我要招架龍', '我要招架魔族']);
+});
+test('episodeSubs：作品名的部分比對不停在括號上', () => {
+  assert.deepEqual(episodeSubs(['暴走哈姆醬【第2回】絕對不原諒這傢伙...', '暴走哈姆醬【第3回】命運的相會', '暴走哈姆醬【第4回】一隻鼠看家會發生什麼事呢？'], ['暴走哈姆醬【繁中字幕】']), ['絕對不原諒這傢伙', '命運的相會', '一隻鼠看家會發生什麼事呢？']);
+});
