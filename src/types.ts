@@ -12,7 +12,8 @@ export interface Work {
 // moved：分組規則改變（例如跨頻道合併）後，舊作品 ID → 新作品 ID；舊網址轉址、本機紀錄搬移用
 export interface Catalog { generatedAt: string; channels: { key: string; name: string; label?: string }[]; works: Work[]; moved?: Record<string, string> }
 // sub：集的副標（同步時從標題取出，見 CONTEXT.md「季」）；title 是 YouTube 原標題
-export interface Episode { id: string; n: number; title: string; sub?: string; sec: number; ext: boolean }
+// part：拆成兩半的集是哪一半（後半的 n 是 x.5，顯示用 epNo）
+export interface Episode { id: string; n: number; part?: '上' | '下'; title: string; sub?: string; sec: number; ext: boolean }
 // ch：片源頻道（同一季可能有好幾個頻道上傳，觀看者可以切換）
 export interface Dub { lang: string; ch?: string; list: string | null; episodes: Episode[] }
 // kind=special 是「劇場版與特別篇」（CONTEXT.md），type 標示劇場版／OVA／特別篇／總集篇／合集；bundle：合集影片

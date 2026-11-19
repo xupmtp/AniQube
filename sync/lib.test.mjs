@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles, isMixed, episodeSubs, seasonLabel, isExtra, ownDesc, movieKey, playableEps, memberLocked } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles, isMixed, episodeSubs, seasonLabel, isExtra, ownDesc, movieKey, playableEps, memberLocked, epPart, episodeFrame } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -423,6 +423,7 @@ test('buildSeasons：混合清單看拆出單篇前的全部標題；整份都�
   assert.deepEqual(s.filter((x) => x.single).map((x) => x.playlistId).sort(), ['v-k1', 'v-k2']);
   assert.equal(s.find((x) => x.playlistId === 'ova').episodes.length, 2); // 短的 OVA 清單仍是一季
   assert.equal(isExtra('【中日雙語字幕】電影「企鵝公路」'), true);
+  assert.equal(isExtra('《偽戀》OVA1 (繁中字幕 | 日語原聲)'), true);
 });
 
 test('workBase 去掉 TV版；ownDesc 只收整部的簡介', () => {
@@ -490,4 +491,56 @@ test('episodeSubs：共同開頭去掉後只剩一個字就不去', () => {
 });
 test('episodeSubs：作品名的部分比對不停在括號上', () => {
   assert.deepEqual(episodeSubs(['暴走哈姆醬【第2回】絕對不原諒這傢伙...', '暴走哈姆醬【第3回】命運的相會', '暴走哈姆醬【第4回】一隻鼠看家會發生什麼事呢？'], ['暴走哈姆醬【繁中字幕】']), ['絕對不原諒這傢伙', '命運的相會', '一隻鼠看家會發生什麼事呢？']);
+});
+test('episodeNumber：先看【】外面；【】裡只有集數才算；拆兩半的集', () => {
+  assert.equal(episodeNumber('我們這一家 第222話【圍裙神探第二話/爸爸，媽媽，新婚時】| Muse木棉花'), 222);
+  assert.equal(episodeNumber('暴走哈姆醬【第55回】幸運倉鼠倉鼠團'), 55);
+  assert.equal(episodeNumber('式守同學不只可愛而已 特別篇【一起來看吧！TV動畫第1集評論音軌SP】'), null);
+  assert.equal(episodeNumber('Re：從零開始的異世界生活(新編集版) 第1B話(EP01下)【x】'), 1.5);
+  assert.equal(epPart('Re 第1A話(EP01上)'), '上');
+  assert.equal(epPart('ENG SUB《斗罗大陆》Soul Land EP240下 | x'), '下');
+  assert.equal(epPart('《某》EP12上线啦'), null);
+});
+test('episodeFrame：系列框不含集數、副標、版本字樣，保留季數與外傳字樣', () => {
+  assert.equal(episodeFrame('擅長捉弄人的高木同學S3【握力器】第01話小故事｜Muse木棉花'), '擅長捉弄人的高木同學S3 小故事');
+  assert.equal(episodeFrame('🔮 MULTISUB | EP01|《全职法师》特别篇——神秘委托 Versatile Mage'), '全职法师 特别篇 神秘委托');
+  assert.equal(episodeFrame('🌟 MULTISUB | 优化版《星辰变》Stellar Transformations EP53 | 师徒之缘'), episodeFrame('🌟 MULTISUB |《星辰变》Stellar Transformations EP53 | 师徒之缘'));
+  assert.equal(episodeFrame('PUI PUI 天竺鼠車車 駕訓班篇(S2) 第01話【大樓倒塌啦!】'), 'PUI PUI 天竺鼠車車 駕訓班篇 S2');
+});
+test('buildSeasons：清單裡撞號的別系列、別配音拆開；合集移出；重複上傳只留一支', () => {
+  const v = (id, title, sec = 1440, at = `2024-01-${id.slice(-2)}`) => [id, { id, title, sec, at, live: 'none', embeddable: true, views: 0 }];
+  const videos = new Map([
+    v('a01', '某作 第01話【開始】｜Muse'), v('a02', '某作 第02話【繼續】｜Muse'),
+    v('b01', '某作外傳 第01話【別的】｜Muse'), v('b02', '某作外傳 第02話【別的2】｜Muse'),
+    v('c03', '某作外傳2 第03話【不撞號】｜Muse'),
+    v('j01', '【日語】某作S2 第01話【x】'), v('k01', '【國語】某作S2 第01話【x】'),
+    v('r01', '某作(日本重播版) 第01話【開始】｜Muse', 1450, '2024-05-01'),
+    v('f01', '某作 EP01-12一口氣 Full', 15000), v('p01', '某作 首播 第01-03話', 4300), v('p04', '某作 第04話', 1440),
+  ]);
+  const s = buildSeasons([
+    { id: 'L', title: '某作｜Muse', videoIds: ['a01', 'a02', 'b01', 'b02', 'c03', 'r01', 'f01'] },
+    { id: 'S2', title: '某作 第二季', videoIds: ['j01', 'k01'] },
+    { id: 'P', title: '某作 第三季', videoIds: ['p01', 'p04'] },
+  ], new Map(videos), cfg, ch('muse'), new Set());
+  const by = (id) => s.find((x) => x.playlistId === id);
+  assert.deepEqual(by('L').episodes.map((e) => e.id), ['a01', 'a02', 'c03']); // 不撞號的併回主體；重播版、一口氣合集不在季裡
+  assert.equal(by('L').rawTitle, '某作');
+  assert.deepEqual(by('L@b01').episodes.map((e) => e.id), ['b01', 'b02']);
+  assert.equal(by('L@b01').rawTitle, '某作外傳');
+  assert.equal(by('S2@k01').rawTitle, '【國語】某作S2');
+  assert.deepEqual(by('P').episodes.map((e) => e.id), ['p01', 'p04']); // 首播合併集沒有單獨上傳，就是第 1 集
+});
+test('sortEpisodes：一半以上撞號的照上架時間重新編號', () => {
+  const e = (id, title, at) => ({ id, title, at });
+  assert.deepEqual(sortEpisodes([e('b', '某【乙】第01話小故事', '2024-02'), e('a', '某【甲】第01話小故事', '2024-01'), e('c', '某【丙】第02話小故事', '2024-03'), e('d', '某【丁】第02話小故事', '2024-04')]).map((x) => [x.id, x.n]), [['a', 1], ['b', 2], ['c', 3], ['d', 4]]);
+});
+test('seasonLabel：作品名後面多了字的不當作譯名不同', () => {
+  assert.deepEqual(seasonLabel('Love Live！虹咲學園學園偶像同好會 短篇動畫 2', 'Love Live! 虹咲學園 學園偶像同好會'), { no: null, sub: '短篇動畫 2' });
+  assert.deepEqual(seasonLabel('SPY x FAMILY間諜家家酒 Season 3', 'SPY×FAMILY間諜家家酒'), { no: 3, sub: '' });
+});
+test('episodeSubs：拆兩半的集不留「1A話」「(EP01上)」', () => {
+  assert.deepEqual(episodeSubs(['Re：從零開始的異世界生活(新編集版) 第1A話(EP01上)【開始的結束與結束的開始】| Muse木棉花 動畫 線上看', 'Re：從零開始的異世界生活(新編集版) 第1B話(EP01下)【開始的結束與結束的開始】| Muse木棉花 動畫 線上看', 'Re：從零開始的異世界生活(新編集版) 第2A話(EP02上)【重逢的魔女】| Muse木棉花 動畫 線上看'], ['Re：從零開始的異世界生活']), ['開始的結束與結束的開始', '開始的結束與結束的開始', '重逢的魔女']);
+});
+test('episodeSubs：作品名的部分比對不切在數字中間', () => {
+  assert.deepEqual(episodeSubs(['虛構推理 第09話【鋼人七瀨攻略議會】｜Muse木棉花', '虛構推理 第10話【虛構爭奪】｜Muse木棉花', '虛構推理 第11話【最後的虛構】｜Muse木棉花'], ['虛構推理', '虛構推理 第1季']), ['鋼人七瀨攻略議會', '虛構爭奪', '最後的虛構']);
 });

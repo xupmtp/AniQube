@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { epLabel, fmtDur, metaLine, playlistUrl, posterOf } from '../catalog.ts';
+import { epLabel, epNo, fmtDur, metaLine, playlistUrl, posterOf } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
 import { clearHistory, inList, isWatched, markSeen, prefs, progress, settings, toggleList, watched } from '../store.ts';
 import type { Detail, Work } from '../types.ts';
@@ -95,7 +95,7 @@ const enc = encodeURIComponent;
         <ol class="eps">
           <li v-for="r in rows" :key="r.n">
             <RouterLink :to="`/watch/${enc(work.id)}/${r.ep.id}`" :class="{ cur: r.ids.includes(progress[work.id]?.ep ?? ''), seen: seenRow(r.ids) }">
-              <b>{{ r.n }}</b><span :title="r.ep.title">{{ epLabel(r.ep, season.name) }}</span>
+              <b>{{ epNo(r.ep) }}</b><span :title="r.ep.title">{{ epLabel(r.ep, season.name) }}</span>
               <small><span v-if="seenRow(r.ids)" class="tick" aria-label="看過">✓</span>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · 在 YouTube 觀看</template></small>
             </RouterLink>
           </li>

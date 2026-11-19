@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { epLabel, fmtDur, ytUrl } from '../catalog.ts';
+import { epLabel, epName, epNo, fmtDur, ytUrl } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
 import { loadYT } from '../player.ts';
 import type { YTPlayer } from '../player.ts';
@@ -129,7 +129,7 @@ function onShareToggle(e: Event) {
 function shareEp(e: Event) {
   if (!ep.value) return;
   const t = withTime.value && shareAt.value > 0 ? `?t=${shareAt.value}` : '';
-  const name = season.value?.bundle ? `${title.value} 合集 ${season.value.name}` : season.value?.kind === 'special' ? season.value.name : `${title.value} 第 ${ep.value.n} 集`;
+  const name = season.value?.bundle ? `${title.value} 合集 ${season.value.name}` : season.value?.kind === 'special' ? season.value.name : `${title.value} ${epName(ep.value)}`;
   void share(`${name}｜動漫立方`, pageUrl(`/watch/${enc(id.value)}/${ep.value.id}${t}`));
   (e.target as HTMLElement).closest('details')?.removeAttribute('open');
 }
@@ -181,7 +181,7 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
       <div class="bar">
         <div>
           <RouterLink :to="`/title/${enc(id)}`" class="back">‹ {{ title }}</RouterLink>
-          <h1>{{ season.bundle ? `合集 ${season.name}` : season.kind === 'special' ? season.name : `第 ${ep?.n} 集` }} <small>{{ ep ? fmtDur(ep.sec) : '' }}</small></h1>
+          <h1>{{ season.bundle ? `合集 ${season.name}` : season.kind === 'special' ? season.name : (ep ? epName(ep) : '') }} <small>{{ ep ? fmtDur(ep.sec) : '' }}</small></h1>
           <p class="ept">{{ season.kind === 'special' ? (season.type ?? '') : `${season.name} · ${ep ? epLabel(ep, season.name) : ''}` }}</p>
         </div>
         <div class="actions">
@@ -197,7 +197,7 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
         </div>
       </div>
       <div v-if="countdown" class="countdown" role="status">
-        <span><b>{{ countdown }}</b> 秒後播放下一集<template v-if="next"> · 第 {{ epAt(detail, next).n }} 集</template></span>
+        <span><b>{{ countdown }}</b> 秒後播放下一集<template v-if="next"> · {{ epName(epAt(detail, next)) }}</template></span>
         <button class="btn" @click="cancelCountdown">取消</button>
       </div>
       <div class="watch-tools">
@@ -222,7 +222,7 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
       <ol v-else class="eps">
         <li v-for="r in rows" :key="r.n">
           <RouterLink :to="`/watch/${enc(id)}/${r.ep.id}`" :class="{ cur: r.ids.includes(ep?.id ?? ''), seen: seenRow(r.ids) }">
-            <b>{{ r.n }}</b><span :title="r.ep.title">{{ epLabel(r.ep, season.name) }}</span>
+            <b>{{ epNo(r.ep) }}</b><span :title="r.ep.title">{{ epLabel(r.ep, season.name) }}</span>
             <small><span v-if="seenRow(r.ids)" class="tick" aria-label="看過">✓</span>{{ fmtDur(r.ep.sec) }}<template v-if="r.ep.ext"> · YouTube</template></small>
           </RouterLink>
         </li>

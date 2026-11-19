@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { posterOf } from '../catalog.ts';
+import { epName, posterOf } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
 import { clearHistory, historyIds, progress, watched } from '../store.ts';
 import type { Catalog, Detail } from '../types.ts';
@@ -22,7 +22,7 @@ const rows = computed(() => {
     if (!w) return [];
     const last = progress[id]?.ep ?? watched[id]?.at(-1);
     const d = details.value[id], spot = d && last ? locate(d, last) : null;
-    const where = spot ? `${d.seasons[spot.s].name} 第 ${d.seasons[spot.s].dubs[spot.d].episodes[spot.i].n} 集` : '';
+    const where = spot ? `${d.seasons[spot.s].name} ${epName(d.seasons[spot.s].dubs[spot.d].episodes[spot.i])}` : '';
     return [{ w, at, where, count: watched[id]?.length ?? 0 }];
   });
 });

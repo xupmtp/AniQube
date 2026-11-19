@@ -99,8 +99,13 @@ export function metaLine(s: Work): string {
   return parts.filter(Boolean).join(' · ');
 }
 
+/** 集數：「12」；拆成兩半的集「240上」「240下」 */
+export const epNo = (ep: { n: number; part?: string }): string => `${Math.floor(ep.n)}${ep.part ?? ''}`;
+/** 「第 12 集」「第 240 集（上）」 */
+export const epName = (ep: { n: number; part?: string }): string => `第 ${Math.floor(ep.n)} 集${ep.part ? `（${ep.part}）` : ''}`;
+
 /** 集數列表上的名稱：同步時取出的副標；沒有副標就寫「第 n 集」 */
-export const epLabel = (ep: { n: number; sub?: string; title: string }, name?: string): string => (ep.sub ?? epTitle(ep.title, name)) || `第 ${ep.n} 集`;
+export const epLabel = (ep: { n: number; part?: string; sub?: string; title: string }, name?: string): string => (ep.sub ?? epTitle(ep.title, name)) || epName(ep);
 
 /** 集標題去掉字幕標示、頻道標記與「｜」之後的宣傳尾巴；給了季名就再去掉開頭的配音標記與重複的作品名（集數列表用） */
 export function epTitle(t: string, name?: string): string {

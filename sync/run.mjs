@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { zstdDecompressSync } from 'node:zlib';
-import { buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, episodeNumber, movieKey, episodeSubs, ownDesc, isMixed, memberLocked, playableEps, parseHints, seasonLabel, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
+import { ORIGINAL, buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, episodeNumber, movieKey, episodeSubs, ownDesc, isMixed, memberLocked, playableEps, parseHints, seasonLabel, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
 import { BLOCKED_GENRES, GENRES, TAGS } from './taxonomy.mjs';
 
 const KEY = process.env.YOUTUBE_API_KEY;
@@ -238,7 +238,7 @@ for (const s of raw) {
 }
 const meta = await anilist([...new Set(raw.map((s) => s.link?.anilistId).filter(Boolean))]);
 
-const ORIGINAL = { JP: '日語', CN: '國語', KR: '韓語' }; // 沒標配音的清單就是原聲
+
 const genresOf = (a) => (a?.genres ?? []).filter((g) => GENRES[g]).map((g) => GENRES[g]);
 const tagsOf = (a) => (a?.tags ?? []).filter((t) => !t.isMediaSpoiler && t.rank >= 60 && TAGS[t.name]).map((t) => TAGS[t.name]);
 const SEASON_IDX = { WINTER: 0, SPRING: 1, SUMMER: 2, FALL: 3 };
@@ -402,7 +402,7 @@ report.memberLocked = []; // 幾乎只有會員限定、不收的作品（docs/a
         name: seasonName(x, w.base), kind: x.kind, ...(x.bundle && { bundle: true }), ...(x.kind === 'special' && { type: specialType(x) }),
         dubs: x.dubs.map((d) => {
           const subs = episodeSubs(d.episodes.map((e) => e.title), [w.base, x.name, d.name], d.channel.origin === 'CN');
-          return { lang: d.lang, ch: d.channel.key, list: d.single ? null : d.id, episodes: d.episodes.map(({ id: v, n, title, sec, ext }, i) => ({ id: v, n, title, sub: subs[i], sec, ext })) };
+          return { lang: d.lang, ch: d.channel.key, list: d.single ? null : d.id, episodes: d.episodes.map(({ id: v, n, part, title, sec, ext }, i) => ({ id: v, n, ...(part && { part }), title, sub: subs[i], sec, ext })) };
         }),
       })),
     });
