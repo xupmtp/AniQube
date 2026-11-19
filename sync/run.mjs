@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { zstdDecompressSync } from 'node:zlib';
-import { buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, episodeSubs, isMixed, parseHints, seasonLabel, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
+import { buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, episodeNumber, movieKey, episodeSubs, ownDesc, isMixed, parseHints, seasonLabel, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
 import { BLOCKED_GENRES, GENRES, TAGS } from './taxonomy.mjs';
 
 const KEY = process.env.YOUTUBE_API_KEY;
@@ -109,9 +109,19 @@ async function fetchChannel(ch, prev) {
 // 影片輪到哪一天重查（0～6）：用 ID 算，固定且平均分散
 const rotation = (id) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 7;
 
+// 幾個標題共同的開頭，去掉結尾的集數記號（「BURN THE WITCH 龍與魔女 #1…」「#2…」→「BURN THE WITCH 龍與魔女」）
+const commonHead = (ts) => ts.reduce((a, t) => { let i = 0; while (i < a.length && a[i] === t[i]) i++; return a.slice(0, i); }).replace(/[\s#＃第EP]*$/i, '').trim();
+
 function buildChannel(ch, { members: m, uploadIds, lists, videos: v }) {
   const members = new Set(m), videos = new Map(v.map((x) => [x.id, x]));
-  const seasons = buildSeasons(lists, videos, cfg, ch, members).filter((s) => !isMixed(s.episodes.map((e) => e.title), index));
+  // 混合清單不是一季：裡面的集依對到的 AniList 條目分開，同一部 2 集以上自成一季（「BURN THE WITCH」），其餘當單篇
+  const seasons = buildSeasons(lists, videos, cfg, ch, members).flatMap((s) => {
+    if (s.single || !isMixed(s.allTitles, index)) return [s];
+    const parts = Map.groupBy(s.episodes, (e) => match(e.title, index)?.anilistId ?? e.id);
+    return [...parts].map(([k, eps]) => (eps.length > 1
+      ? { ...s, playlistId: `${s.playlistId}:${k}`, rawTitle: commonHead(eps.map((e) => e.title)), episodes: eps.map((e, i) => ({ ...e, n: i + 1 })) }
+      : { playlistId: `v-${eps[0].id}`, rawTitle: eps[0].title, single: true, episodes: [{ ...eps[0], n: 1 }] }));
+  });
   const used = new Set(seasons.flatMap((s) => s.episodes.map((e) => e.id)));
   const uploads = uploadIds.map((id) => videos.get(id)).filter(Boolean);
   const singles = buildStandalones(uploads, used, cfg, ch, members);
@@ -243,7 +253,7 @@ raw.forEach((s, order) => {
     id: s.playlistId, name: s.channel.origin === 'CN' ? toTrad(name) : name, rawTitle: s.rawTitle, single: !!s.single, order,
     channel: s.channel, lang, original: lang === ORIGINAL[s.channel.origin], members: s.members ?? 0, aid: s.bundle ? null : s.link?.anilistId ?? null, bundle: s.bundle, // 合集的對應只拿來補題材封面，不參與作品合併
     when: airTime(a, s.link?.entry),
-    episodes: s.episodes, a, entry: s.link?.entry, link: s.link, desc: s.desc ?? '', epDesc: videoDesc.get(s.episodes[0]?.id) ?? '',
+    episodes: s.episodes, a, entry: s.link?.entry, link: s.link, desc: s.desc ?? '',
   });
   if (s.bundle) return; // 合集不列進覆核清單
   if (!s.link) report.unmatched.push({ id: s.playlistId, title: s.rawTitle, eps: s.episodes.length });
@@ -314,7 +324,7 @@ function seasonName(x, base) {
   if (x.kind === 'special') { // 去掉作品名與類型字樣（類型另外標示）：「劇場版 【紅蓮之絆篇】」→「紅蓮之絆篇」
     const fromTitle = x.dubs[0].single ? episodeSubs([x.dubs[0].episodes[0].title], [base, x.name], x.dubs[0].channel.origin === 'CN')[0] : '';
     const { sub } = seasonLabel((fromTitle || x.name).replace(/劇場版|剧场版|電影版?|电影版?|\bThe Movie\b|\bOVA\b|\bOAD\b|特別篇|特别篇|總集篇|总集篇|木棉花電影院/gi, ' ').replace(/【\s*】|[(（]\s*[)）]/g, ' '), base);
-    return sub.replace(/^【([^】]+)】$/, '$1') || x.name;
+    return sub.replace(/【([^】]+)】/g, ' $1 ').replace(/\s+/g, ' ').trim() || x.name;
   }
   const { no, sub } = seasonLabel(x.name, base);
   if (x.loose) return sub || '全部集數';
@@ -336,9 +346,16 @@ report.fuzzy = [];
   for (const w0 of groupWorks(items, manualWorks, related, apart, report.fuzzy, chainOf)) {
     // 合集依季、集數由小到大排在最後
     const kept = pickBundles(w0.seasons), at = ({ season, a: n }) => (season ?? 0) * 1e5 + (n ?? 0);
-    // 劇場版與特別篇：單篇依首播（沒有就上架）時間由舊到新，合集接在後面依集數範圍
-    const dated = (x) => Math.min(...x.dubs.map((d) => d.when ?? Infinity)) * 1e6 + Date.parse(x.dubs[0].episodes[0]?.at ?? 0) / 1e6;
-    const ordered = [...kept.filter((x) => x.kind !== 'special'), ...kept.filter((x) => x.kind === 'special' && !x.bundle).sort((p, q) => dated(p) - dated(q)),
+    // 劇場版與特別篇：單篇依首播（標題寫了年份「蠟筆小新2016電影」用標題的，再來 AniList，都沒有就上架）時間由舊到新，合集接在後面依集數範圍
+    const year = (x) => Number(/(?<!\d)(19[5-9]\d|20[0-4]\d)(?!\d)/.exec(x.dubs[0].episodes[0]?.title ?? '')?.[1]) * 10 || null;
+    const dated = (x) => (year(x) ?? Math.min(...x.dubs.map((d) => d.when ?? Infinity))) * 1e6 + Date.parse(x.dubs[0].episodes[0]?.at ?? 0) / 1e6;
+    // 同一部片重複上傳（「進擊的巨人-劇場版【前編 紅蓮的弓矢】」與「【中日雙語字幕】電影「進擊的巨人劇場版-前篇 紅蓮的弓矢」」）：
+    // 都只有一支影片、片長差不到 1 分鐘、標題去掉標記後一樣（movieKey），只留先上架的
+    const one = (x) => x.dubs.length === 1 && x.dubs[0].episodes.length === 1 ? x.dubs[0].episodes[0] : null;
+    const same = (p, q) => one(p) && one(q) && Math.abs(one(p).sec - one(q).sec) <= 60 && movieKey(one(p).title) === movieKey(one(q).title);
+    const extras = kept.filter((x) => x.kind === 'special' && !x.bundle).sort((p, q) => dated(p) - dated(q))
+      .filter((x, i, a) => !a.slice(0, i).some((y) => same(y, x)));
+    const ordered = [...kept.filter((x) => x.kind !== 'special'), ...extras,
       ...kept.filter((x) => x.bundle).sort((p, q) => at(p.bundle) - at(q.bundle))];
     const w = { ...w0, seasons: ordered.map((x) => ({ ...x, dubs: sortDubs(x.dubs) })) };
     if (!w.seasons.length) continue;
@@ -367,11 +384,12 @@ report.fuzzy = [];
       anilistId: latest.link?.anilistId ?? null, how: latest.link?.how ?? null,
     });
     // 簡介：原聲季的頻道播放清單說明（清掉宣傳），沒有就退回 AniList 英文（docs/features.md）
-    // 播放清單說明清不出中文時，改用第 1 集的影片說明（Ani-One 清單幾乎不寫說明）；說明裡要提到作品名才用，
-    // 騰訊有些影片放的是別部作品的說明
+    // 播放清單說明清不出中文時，改用第 1 集的影片說明（Ani-One 清單幾乎不寫說明）；規則見 ownDesc
     const zd = [...main.map(pick), ...all].find((d) => cleanDesc(d.desc));
-    const ed = !zd && [...main.map(pick), ...all].find((d) => norm(d.epDesc).includes(norm(w.base)) && cleanDesc(d.epDesc));
-    const zh = zd ? cleanDesc(zd.desc) : ed ? cleanDesc(ed.epDesc) : '';
+    const names = [w.base, ...all.map((d) => d.name)];
+    const epDesc = (d) => ownDesc(videoDesc.get(d.episodes[0]?.id), videoDesc.get(d.episodes[1]?.id), names, (episodeNumber(d.episodes[0]?.title ?? '') ?? 9) <= 1); // 合輯拆過的季要看拆完的集；第 0 話（序章）也算第一集
+    const ed = !zd && [...main.map(pick), ...all].find(epDesc);
+    const zh = zd ? cleanDesc(zd.desc) : ed ? epDesc(ed) : '';
     const zc = zd || ed;
     const en = all.map((d) => plain(d.a?.description)).find(Boolean) ?? '';
     const desc = zh ? (zc.channel.origin === 'CN' ? toTrad(zh) : zh) : en.slice(0, 300);

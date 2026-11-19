@@ -145,7 +145,7 @@ export function episodeNumber(title) {
 }
 
 /** 季清單裡沒有集數、標題像劇場版／OVA／特別篇／總集篇的影片：移出季，改當單篇（CONTEXT.md「劇場版與特別篇」） */
-export const isExtra = (title) => episodeNumber(title) == null && /劇場版|剧场版|電影版|电影版|\bOVA\b|\bOAD\b|特別篇|特别篇|總集篇|总集篇|特別上映|特别上映|\bSP\b/i.test(title);
+export const isExtra = (title) => episodeNumber(title) == null && /劇場版|剧场版|電影|电影|\bOVA\b|\bOAD\b|特別篇|特别篇|總集篇|总集篇|特別上映|特别上映|\bSP\b/i.test(title);
 
 /**
  * 季裡的集依集數排：有集數的照集數；沒有集數的照上架時間接在後面（整份都沒有集數時，「新的在前」的清單也會排對）。
@@ -185,18 +185,23 @@ export function buildSeasons(playlists, videos, cfg, ch, members) {
       eps.push({ id, title: v.title, sec: v.sec, views: v.views, at: v.at, ext: c.ext });
     }
     if (!eps.length) continue;
-    // 季清單裡混了劇場版、OVA（有正片集數的才算混；整份都是 OVA 的本身就是一季）→ 移出來當單篇
-    if (eps.some((e) => !isExtra(e.title))) {
-      for (const e of eps.filter((x) => isExtra(x.title))) {
+    // 混合判斷要看拆出單篇前的全部標題（「木棉花電影院」拆走劇場版後只剩一部作品，會誤判成一季）
+    const allTitles = eps.map((e) => e.title);
+    const works = new Set(allTitles.map((t) => /《(.+?)》/.exec(t)?.[1]).filter(Boolean));
+    if (works.size > 2) continue; // 混合清單（多部作品的精選）
+    // 季清單裡混了劇場版、OVA（有正片集數的才算混；整份都是短篇 OVA 的本身就是一季）→ 移出來當單篇；
+    // 一小時以上的劇場版一律各自是單篇（「蠟筆小新 劇場版」清單是 20 部電影，不是一季）
+    const out1 = (e) => isExtra(e.title) && (e.sec >= 3600 || eps.some((x) => !isExtra(x.title)));
+    if (eps.some(out1)) {
+      for (const e of eps.filter(out1)) {
         if (!seen.has(e.id)) extras.push({ playlistId: `v-${e.id}`, rawTitle: e.title, single: true, episodes: [{ ...e, n: 1 }] });
         seen.add(e.id);
       }
-      eps.splice(0, eps.length, ...eps.filter((x) => !isExtra(x.title)));
+      eps.splice(0, eps.length, ...eps.filter((x) => !out1(x)));
+      if (!eps.length) continue;
     }
-    const works = new Set(eps.map((e) => /《(.+?)》/.exec(e.title)?.[1]).filter(Boolean));
-    if (works.size > 2) continue; // 混合清單（多部作品的精選）
     // members：清單裡被當成會員限定扣掉的集數，作品頁用來提示「其餘為會員限定」
-    out.push({ playlistId: p.id, rawTitle: p.title, desc: p.desc ?? '', episodes: sortEpisodes(eps), members: p.videoIds.filter((id) => members.has(id)).length });
+    out.push({ playlistId: p.id, rawTitle: p.title, desc: p.desc ?? '', episodes: sortEpisodes(eps), allTitles, members: p.videoIds.filter((id) => members.has(id)).length });
   }
   return [...out, ...extras]; // 季清單裡的劇場版、OVA 當單篇，跟著作品名歸到所屬作品
 }
@@ -347,6 +352,7 @@ export function workBase(name) {
     .replace(/(?<=[^\x00-\x7F]|\s)(?:II|III|IV|V|VI|Ⅱ|Ⅲ|Ⅳ|Ⅴ|Ⅵ)$/, '')
     .replace(/\s*(?<![\p{L}\d])(?:[一二三四五六七八九十]|\d+)\s*期$/u, '')
     .replace(/系列$/, '')
+    .replace(/\s*[(（]?TV\s*版[)）]?$/i, '') // 「蠟筆小新TV版」：版本標示不是作品名的一部分，劇場版才能歸進來
     .replace(/[\s:：\-—～~]+$/, '')
     .trim() || name;
 }
@@ -717,10 +723,10 @@ export function cleanDesc(raw) {
   let lines = String(raw ?? '').split(/\r?\n/);
   const at = lines.findIndex((l) => /^\s*[简簡]介\s*[:：]?\s*$/.test(l));
   if (at >= 0) lines = lines.slice(at + 1);
-  const story = lines.findIndex((l) => /【\s*(劇情|故事|作品)簡介\s*】/.test(l));
+  const story = lines.findIndex((l) => /^\W*(劇情|故事|作品)簡介\W*$/u.test(l.trim())); // 【劇情簡介】、✧劇情簡介✧
   if (story >= 0) {
     lines = lines.slice(story + 1);
-    const end = lines.findIndex((l) => /^\s*【/.test(l));
+    const end = lines.findIndex((l) => /^\s*【|^[゜✧.━\s]{6,}$/.test(l));
     if (end > 0) lines = lines.slice(0, end);
   }
   lines = lines.map((l) => l.replace(/^[^\n]{0,40}》[^《》\n]{0,10}登陸Ani-One[^！!]*[！!]\s*/, ''));
@@ -730,4 +736,28 @@ export function cleanDesc(raw) {
     .map((l) => l.replace(/https?:\/\/\S+/g, '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u200D]/gu, '').trim());
   const text = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   return [...text].length >= 30 ? text : '';
+}
+
+/**
+ * 影片說明當作品簡介。要像一段簡介（有一句 15 字以上、帶標點的句子，不是宣傳行或章節列表）。
+ * 下一集的說明第一段不一樣，就是各集劇情（木棉花、Ani-One）：只有第 1 集、而且提到作品名的才當簡介（故事開頭）。
+ * 每集一樣的是整部的簡介：提到作品名就用；沒提到（騰訊常不寫片名）時簡介裡寫的《》要是這部
+ * （騰訊有些影片放別部的說明）。只有一集的要提到作品名。names：作品名與各季名
+ */
+/** 同一部片重複上傳的比對鍵：去掉語言／頻道標記、「｜」後的頻道名（版本名留著）、電影／劇場版字樣，編、篇視為同字
+ *  （「進擊的巨人-劇場版【前編 紅蓮的弓矢】」＝「【中日雙語字幕】電影「進擊的巨人劇場版-前篇 紅蓮的弓矢」」） */
+export const movieKey = (title) => norm(String(title).split(/[｜|]/).filter((s, i) => !i || !META.test(s)).join(' ').replace(/【([^】]*)】/g, (m, x) => (TAG.test(x) || META.test(x) ? '' : x))
+  .replace(/[(（][^)）]*(字幕|配音|原聲)[^)）]*[)）]/g, '').replace(/劇場版|剧场版|電影|电影/g, '').replace(/編/g, '篇'));
+
+export function ownDesc(desc, next, names, first = false) {
+  const text = cleanDesc(desc), after = cleanDesc(next);
+  if (!text || !/[^\n《》【】]{15,}[，。！？；]/.test(text)) return '';
+  const keys = names.map((n) => norm(toTrad(n))).filter((k) => k.length >= 2);
+  const named = keys.some((n) => norm(toTrad(String(desc))).includes(n));
+  const head = (t) => t.split('\n')[0];
+  if (after && head(after) !== head(text)) return first && named ? text : '';
+  if (named) return text;
+  const like = (x) => { const k = norm(x); return keys.some((n) => n.includes(k) || k.includes(n) || dice(bigrams(x), bigrams(n)) >= FUZZY); };
+  const marks = [...toTrad(text).matchAll(/《(.+?)》/g)].map((m) => m[1]);
+  return after && (!marks.length || marks.some(like)) ? text : '';
 }

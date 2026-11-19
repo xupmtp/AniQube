@@ -40,6 +40,10 @@ const main = computed(() => indexed.value.filter(({ x }) => x.kind !== 'special'
 const specials = computed(() => indexed.value.filter(({ x }) => x.kind === 'special')); // 劇場版與特別篇（含合集）
 const season = computed(() => detail.value?.seasons[sel.value.s]);
 const showSp = computed(() => sel.value.s === -1 || season.value?.kind === 'special');
+// 劇場版與特別篇的配音：列表上方統一選，預設原聲（各部的第一個配音版）
+const spLangs = computed(() => [...new Set(specials.value.flatMap(({ x }) => x.dubs.map((d) => d.lang)))]);
+const spLang = ref('');
+watch(spLangs, (l) => { if (!l.includes(spLang.value)) spLang.value = l[0] ?? ''; }, { immediate: true });
 const options = computed(() => [...main.value.map((m) => ({ s: m.s, name: m.x.name })), ...(specials.value.length ? [{ s: -1, name: '劇場版與特別篇' }] : [])]);
 const rows = computed(() => { const r = season.value ? episodeRows(season.value, sel.value.d) : []; return settings.newestFirst ? [...r].reverse() : r; });
 const count = computed(() => rows.value.filter((r) => r.ep).length);
@@ -105,8 +109,11 @@ const enc = encodeURIComponent;
             <option v-for="o in dubOpts" :key="o.i" :value="o.i">{{ o.d.lang }}配音</option>
           </select>
         </template>
+        <select v-else-if="spLangs.length > 1" v-model="spLang" aria-label="選擇配音">
+          <option v-for="l in spLangs" :key="l" :value="l">{{ l }}配音</option>
+        </select>
       </div>
-      <SpecialList v-if="showSp" :id="work.id" :items="specials" :labels="labels" :cur="progress[work.id]?.ep" />
+      <SpecialList v-if="showSp" :id="work.id" :items="specials" :lang="spLang" :cur="progress[work.id]?.ep" />
       <template v-else-if="season">
         <div class="ep-bar"><span>共 {{ count }} 集</span><button class="link" :aria-label="`排序：${settings.newestFirst ? '新到舊' : '舊到新'}，點一下切換`" @click="settings.newestFirst = !settings.newestFirst">{{ settings.newestFirst ? '新到舊' : '舊到新' }} ⇅</button></div>
         <ol class="eps">

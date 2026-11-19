@@ -218,7 +218,7 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
         </select>
       </div>
       <div v-if="season.kind !== 'special'" class="ep-bar"><span>共 {{ count }} 集</span><button class="link" :aria-label="`排序：${settings.newestFirst ? '新到舊' : '舊到新'}，點一下切換`" @click="settings.newestFirst = !settings.newestFirst">{{ settings.newestFirst ? '新到舊' : '舊到新' }} ⇅</button></div>
-      <SpecialList v-if="season.kind === 'special'" :id="id" :items="specials" :labels="labels" :cur="ep?.id" />
+      <SpecialList v-if="season.kind === 'special'" :id="id" :items="specials" :lang="season.dubs[spot.d].lang" :cur="ep?.id" />
       <ol v-else class="eps">
         <li v-for="r in rows" :key="r.n">
           <RouterLink v-if="r.ep" :to="`/watch/${enc(id)}/${r.ep.id}`" :class="{ cur: r.ep.id === ep?.id, seen: isWatched(id, r.ep.id) }">

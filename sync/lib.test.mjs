@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles, isMixed, episodeSubs, seasonLabel, isExtra } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles, isMixed, episodeSubs, seasonLabel, isExtra, ownDesc, movieKey } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -259,11 +259,11 @@ test('groupWorks：模糊比對（Dice ≥ 0.8）、外傳否決、跨頻道片�
     it('t1', '關於我轉生變成史萊姆這檔事', { aid: 1 }), it('t2', '關於我轉生變成史萊姆這檔事 轉生史萊姆日記', { aid: 2 }), // AniList 標明是外傳 → 不併
     // 同系列、不同作品：相似度不到 0.8，不能併（實測時找到的錯併例子）
     it('b1', 'BanG Dream!'), it('b2', "BanG Dream! It's MyGO!!!!!"), it('l1', 'Love Live!'), it('l2', 'Love Live! Sunshine!!'),
-    it('j1', '怪醫黑傑克TV版'), it('j2', '怪醫黑傑克21'),
+    it('j1', '怪醫黑傑克TV版'), it('j2', '怪醫黑傑克21'), // 去掉「TV版」後只差續作編號 → 併（直接續作，CONTEXT）
   ], {}, {}, { 2: [1] }, log);
-  assert.deepEqual(titles(ws), ["BanG Dream!", "BanG Dream! It's MyGO!!!!!", 'Love Live!', 'Love Live! Sunshine!!', '怪醫黑傑克21', '怪醫黑傑克TV版',
+  assert.deepEqual(titles(ws), ["BanG Dream!", "BanG Dream! It's MyGO!!!!!", 'Love Live!', 'Love Live! Sunshine!!', '怪醫黑傑克21+怪醫黑傑克TV版',
     '為美好的世界獻上祝福！+為美好的世界獻上祝福！3', '關於我轉生變成史萊姆這檔事', '關於我轉生變成史萊姆這檔事 轉生史萊姆日記'].sort());
-  assert.deepEqual(log, [['為美好的世界獻上祝福！', '為美好的世界獻上祝福！3']]);
+  assert.deepEqual(log.sort(), [['怪醫黑傑克', '怪醫黑傑克21'], ['為美好的世界獻上祝福！', '為美好的世界獻上祝福！3']]);
   // 跨頻道：同名的季是同一季的兩個片源；只有一邊有的季照樣併進同一部作品
   const x = groupWorks([it('m1', '高木同學', { ch: 'muse' }), it('n1', '高木同學', { ch: 'anione' }), it('m3', '高木同學 第3季', { ch: 'muse' })]);
   assert.equal(x.length, 1);
@@ -402,4 +402,45 @@ test('sortEpisodes：沒有集數的照上架時間排（新的在前的清單�
   assert.deepEqual(sortEpisodes([e('c', '前篇', '2024-03'), e('b', '中篇', '2024-02'), e('a', '序章', '2024-01')]).map((x) => [x.id, x.n]), [['a', 1], ['b', 2], ['c', 3]]);
   assert.equal(isExtra('進擊的巨人-劇場版【前編 紅蓮的弓矢】'), true);
   assert.equal(isExtra('進擊的巨人 第01話【給二千年後的你】'), false);
+});
+
+test('buildSeasons：混合清單看拆出單篇前的全部標題；整份都是長片的劇場版清單拆成單篇', () => {
+  const videos = new Map([
+    ['w1', v({ id: 'w1', title: 'BURN THE WITCH 龍與魔女 #1', sec: 1200 })],
+    ['k1', v({ id: 'k1', title: '【國語】蠟筆小新2016電影【爆睡！夢世界大作戰！】', sec: 6000 })],
+    ['k2', v({ id: 'k2', title: '【日語】蠟筆小新2016電影【爆睡！夢世界大作戰！】', sec: 6000 })],
+    ['o1', v({ id: 'o1', title: '某 OVA 第1話', sec: 1500 })], ['o2', v({ id: 'o2', title: '某 OVA 第2話', sec: 1500 })],
+  ]);
+  const playlists = [
+    { id: 'mix', title: '【木棉花電影院】劇場版動畫', videoIds: ['w1', 'k1'] },
+    { id: 'kmov', title: '【中日雙語】蠟筆小新 劇場版', videoIds: ['k1', 'k2'] },
+    { id: 'ova', title: '某 OVA', videoIds: ['o1', 'o2'] },
+  ];
+  const s = buildSeasons(playlists, videos, cfg, ch('muse'), new Set());
+  const mix = s.find((x) => x.playlistId === 'mix');
+  assert.deepEqual(mix.allTitles.length, 2); // 混合判斷要看到被拆走的劇場版
+  assert.equal(s.some((x) => x.playlistId === 'kmov'), false);
+  assert.deepEqual(s.filter((x) => x.single).map((x) => x.playlistId).sort(), ['v-k1', 'v-k2']);
+  assert.equal(s.find((x) => x.playlistId === 'ova').episodes.length, 2); // 短的 OVA 清單仍是一季
+  assert.equal(isExtra('【中日雙語字幕】電影「企鵝公路」'), true);
+});
+
+test('workBase 去掉 TV版；ownDesc 只收整部的簡介', () => {
+  assert.equal(workBase('蠟筆小新TV版'), '蠟筆小新');
+  const syn = '简介:\n改编自同名小说，故事讲述了一个备受家族欺凌的少年，从一个平凡的下界二等门派外门弟子，机缘巧合下得到九色神雷的力量……\n🔥热播动漫🔥\n☞ 《斗罗大陆》: https://x';
+  assert.ok(ownDesc(syn, syn, ['修羅武神'])); // 騰訊：說明沒寫作品名，但每集一樣
+  const ep = (s) => `🎯台視最歡樂的『蠟筆小新』現正熱映中！\n✧劇情簡介✧\n${s}，大家跑去找，結果發現足球已經被妮妮拿去當成人質，要脅大家玩扮家家酒…`;
+  assert.equal(ownDesc(ep('男生們在公園裡踢足球'), ep('小新去超市買東西'), ['蠟筆小新']), ''); // 各集劇情不是作品簡介
+  const other = '简介:\n《斗罗大陆》唐三穿越到斗罗大陆，修炼魂力，结识史莱克七怪，一路成长成为强者的故事。';
+  assert.equal(ownDesc(other, other, ['修羅武神']), ''); // 別部作品的簡介
+  assert.equal(ownDesc('木棉花2024七月新番\n《擅長逃跑的殿下》\n【巴哈姆特動畫瘋｜中華電信 MOD｜Hami Video｜LiTV】', '', ['擅長逃跑的殿下']), ''); // 宣傳行
+});
+
+test('movieKey：重複上傳的同一部片對得上，不同片對不上', () => {
+  assert.equal(movieKey('進擊的巨人-劇場版【前編 紅蓮的弓矢】| Muse木棉花 動畫 線上看'), movieKey('【中日雙語字幕】電影「進擊的巨人劇場版-前篇 紅蓮的弓矢」｜Muse木棉花 動畫 線上看'));
+  assert.equal(movieKey('企鵝公路【木棉花電影院】| Muse木棉花'), movieKey('【中日雙語字幕】電影「企鵝公路」｜Muse木棉花'));
+  assert.notEqual(movieKey('《機動戰士鋼彈SEED Special Edition II 遙遠的拂曉 HD Remaster》'), movieKey('《機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster》'));
+});
+test('movieKey：「｜」後是版本名時不能切掉', () => {
+  assert.notEqual(movieKey('《機戰少女Alice Expansion》#OVA｜四谷裕美ver. (繁中字幕 | 日語原聲)【Ani-One】'), movieKey('《機戰少女Alice Expansion》#OVA｜兼志谷星ver. (繁中字幕 | 日語原聲)【Ani-One】'));
 });
