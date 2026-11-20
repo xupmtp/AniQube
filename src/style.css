@@ -261,27 +261,25 @@ main { min-height: calc(100vh - 120px); }
 .player { aspect-ratio: 16/9; background: #000; width: 100%; }
 .player :deep(iframe), .player iframe { width: 100%; height: 100%; border: 0; display: block; }
 .player.ext { display: grid; place-content: center; justify-items: center; gap: var(--s4); color: var(--mute); background: radial-gradient(circle at 50% 40%, var(--ink-3), #000); }
-.bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: var(--s4); padding: var(--s6) var(--gutter) var(--s8); }
-.bar h1 { font: 900 clamp(22px, 1.6vw + 14px, 32px)/1.25 var(--serif); margin: var(--s2) 0 var(--s1); }
-.bar h1 small { font: 400 var(--fs-sm)/1 var(--sans); color: var(--mute); margin-left: var(--s3); font-variant-numeric: tabular-nums; }
+/* 播放頁資訊區：上層麵包屑＋標題，下層操作列（左：這一支的版本、分享；右：自動播放、上下集） */
+.bar { padding: var(--s6) var(--gutter) var(--s6); }
+.crumb { margin: 0; color: var(--mute); font-size: var(--fs-sm); }
+.bar h1 { font: 900 clamp(22px, 1.6vw + 14px, 32px)/1.25 var(--serif); margin: var(--s1) 0 0; }
+.bar h1 .sub { font: 700 clamp(15px, .5vw + 13px, 19px)/1.4 var(--sans); color: var(--text); margin-left: var(--s4); }
+.acts { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--s3) var(--s4); margin-top: var(--s4); padding-top: var(--s4); border-top: 1px solid var(--line); }
+.acts > div { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
+.acts .mini-switch { color: var(--mute); font-size: var(--fs-sm); margin-right: var(--s2); }
 .back { display: inline-flex; align-items: center; min-height: 32px; color: var(--shu-hi); font-size: var(--fs-sm); font-weight: 700; letter-spacing: .04em; }
 .back:hover { text-decoration: underline; }
-.ept { color: var(--mute); margin: 0; }
 .side { max-height: calc(100vh - var(--nav)); overflow-y: auto; border-left: 1px solid var(--line); position: sticky; top: var(--nav); background: var(--ink-2); scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 .side .pickers { position: sticky; top: 0; z-index: 2; padding: var(--s3); margin: 0; background: var(--ink-2); border-bottom: 1px solid var(--line); }
 .side .pickers select { flex: 1 1 140px; }
 .side .eps { border-top: 0; }
 
 /* ── 播放頁：倒數、自動播放開關、快捷鍵說明 ── */
-.countdown { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3); margin: 0 var(--gutter) var(--s4) 20px; padding: var(--s3) var(--s4); border: 1px solid var(--shu); border-radius: var(--r); background: var(--shu-bg); }
+.countdown { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3); margin: 0 var(--gutter) var(--s6); padding: var(--s3) var(--s4); border: 1px solid var(--shu); border-radius: var(--r); background: var(--shu-bg); }
 .countdown b { font: 900 22px/1 var(--serif); color: var(--shu-hi); margin-right: var(--s1); font-variant-numeric: tabular-nums; }
-.watch-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s6); padding: 0 var(--gutter) var(--s8) 20px; color: var(--mute); font-size: var(--fs-sm); }
 .mini-switch { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; cursor: pointer; }
-.keys summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; list-style: none; }
-.keys summary::before { content: "⌨"; margin-right: var(--s2); }
-.keys dl { display: grid; grid-template-columns: auto 1fr; gap: var(--s1) var(--s4); margin: var(--s2) 0 0; padding: var(--s3) var(--s4); border: 1px solid var(--line); border-radius: 8px; background: var(--ink-2); }
-.keys dt { font-weight: 700; color: var(--text); }
-.keys dd { margin: 0; }
 .btn.pulse { box-shadow: 0 0 0 4px #d23a2259; }
 @media (prefers-reduced-motion: no-preference) { .btn.pulse { animation: pulse 1.6s var(--ease) infinite; } @keyframes pulse { 50% { box-shadow: 0 0 0 10px #d23a2200; } } }
 /* 開關（設定頁、播放頁共用） */
@@ -336,6 +334,9 @@ main { min-height: calc(100vh - 120px); }
   .poster { width: 120px; }
 }
 @media (max-width: 600px) {
+  .bar h1 .sub { display: block; margin: var(--s1) 0 0; }
+  .acts .prev span { display: none; }
+  .acts .prev { padding: 10px 18px; }
   .logo span { display: none; }
   .search input { width: 100%; max-width: none; }
   .search { flex: 1; min-width: 0; }

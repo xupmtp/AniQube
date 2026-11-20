@@ -6,9 +6,9 @@ import { loadCatalog, loadDetail } from '../data.ts';
 import { loadYT } from '../player.ts';
 import type { YTPlayer } from '../player.ts';
 import { clearProgress, isWatched, markSeen, markWatched, progress, setProgress, settings } from '../store.ts';
-import { KEY_HELP, isTyping, keyAction } from '../keys.ts';
+import { isTyping, keyAction } from '../keys.ts';
 import { clock, pageUrl, share } from '../share.ts';
-import type { Detail } from '../types.ts';
+import type { Detail, Episode } from '../types.ts';
 import { dubChoices, epAt, firstSpot, locate, nextSpot, prevSpot, sourceChoices, unionRows } from '../work.ts';
 import type { Spot } from '../work.ts';
 import SpecialList from '../components/SpecialList.vue';
@@ -55,6 +55,12 @@ const indexed = computed(() => detail.value?.seasons.map((x, s) => ({ x, s })) ?
 const specials = computed(() => indexed.value.filter(({ x }) => x.kind === 'special'));
 // 季選單：各季，最後一項是劇場版與特別篇（s = -1）
 const options = computed(() => [...indexed.value.filter(({ x }) => x.kind !== 'special').map((m) => ({ s: m.s, name: m.x.name })), ...(specials.value.length ? [{ s: -1, name: '劇場版與特別篇' }] : [])]);
+// 資訊區：麵包屑接季名（劇場版與特別篇寫類型），標題是集數，副標接在旁邊（沒有副標就不重複寫集數）
+const crumb = computed(() => (season.value?.kind === 'special' ? season.value.type ?? '' : season.value?.name ?? ''));
+const heading = computed(() => (season.value?.bundle ? `合集 ${season.value.name}` : season.value?.kind === 'special' ? season.value.name : ep.value ? epName(ep.value) : ''));
+const subOf = (e: Episode) => { const s = epLabel(e, season.value?.name); return s === epName(e) ? '' : s; };
+const sub = computed(() => (season.value?.kind !== 'special' && ep.value ? subOf(ep.value) : ''));
+const nextSub = computed(() => (next.value && season.value?.kind !== 'special' ? subOf(epAt(detail.value!, next.value)) : ''));
 const external = computed(() => !!ep.value?.ext || failed.value);
 
 const enc = encodeURIComponent;
@@ -172,40 +178,36 @@ onUnmounted(() => { clearInterval(timer); cancelCountdown(); window.removeEventL
         <a v-if="ep" class="btn primary" :href="ytUrl(ep.id)" target="_blank" rel="noopener noreferrer">前往 YouTube 觀看</a>
       </div>
       <div class="bar">
-        <div>
-          <RouterLink :to="`/title/${enc(id)}`" class="back">‹ {{ title }}</RouterLink>
-          <h1>{{ season.bundle ? `合集 ${season.name}` : season.kind === 'special' ? season.name : (ep ? epName(ep) : '') }} <small>{{ ep ? fmtDur(ep.sec) : '' }}</small></h1>
-          <p class="ept">{{ season.kind === 'special' ? (season.type ?? '') : `${season.name} · ${ep ? epLabel(ep, season.name) : ''}` }}</p>
-        </div>
-        <div class="actions">
-          <!-- 這一支的配音、片源：放在對這一支的操作旁，不放在列表上方（docs/adr/0010） -->
-          <select v-if="dubs.length > 1" class="ver" :value="season.dubs[spot.d].lang" aria-label="這一集的配音" @change="choose(dubs.find((o) => o.lang === ($event.target as HTMLSelectElement).value)!.spot)">
-            <option v-for="o in dubs" :key="o.lang" :value="o.lang">{{ o.lang }}</option>
-          </select>
-          <select v-if="sources.length > 1" class="ver" :value="spot.d" aria-label="這一集的片源" @change="choose(sources.find((o) => o.spot.d === Number(($event.target as HTMLSelectElement).value))!.spot)">
-            <option v-for="o in sources" :key="o.ch" :value="o.spot.d">{{ labels[o.ch] ?? o.ch }}</option>
-          </select>
-          <details class="share-pop pop" @toggle="onShareToggle">
-            <summary class="btn">分享</summary>
-            <div class="share-box">
-              <label v-if="shareAt > 0"><input v-model="withTime" type="checkbox" /> 從 {{ clock(shareAt) }} 開始</label>
-              <button class="btn primary" @click="shareEp">分享這一集</button>
-            </div>
-          </details>
-          <RouterLink v-if="prev" class="btn" :to="linkTo(prev)">上一集</RouterLink>
-          <RouterLink v-if="next" class="btn primary" :class="{ pulse: endedHere }" :to="linkTo(next)">下一集</RouterLink>
+        <!-- 上層：作品 · 季（劇場版與特別篇寫類型），集數＋副標 -->
+        <p class="crumb"><RouterLink :to="`/title/${enc(id)}`" class="back">‹ {{ title }}</RouterLink><template v-if="crumb"> · {{ crumb }}</template></p>
+        <h1>{{ heading }}<span v-if="sub" class="sub">{{ sub }}</span></h1>
+        <!-- 下層：左邊是這一支的版本與分享（只換這一支，docs/adr/0010），右邊是往前往後 -->
+        <div class="acts">
+          <div>
+            <select v-if="dubs.length > 1" class="ver" :value="season.dubs[spot.d].lang" aria-label="這一集的配音" @change="choose(dubs.find((o) => o.lang === ($event.target as HTMLSelectElement).value)!.spot)">
+              <option v-for="o in dubs" :key="o.lang" :value="o.lang">{{ o.lang }}</option>
+            </select>
+            <select v-if="sources.length > 1" class="ver" :value="spot.d" aria-label="這一集的片源" @change="choose(sources.find((o) => o.spot.d === Number(($event.target as HTMLSelectElement).value))!.spot)">
+              <option v-for="o in sources" :key="o.ch" :value="o.spot.d">{{ labels[o.ch] ?? o.ch }}</option>
+            </select>
+            <details class="share-pop pop" @toggle="onShareToggle">
+              <summary class="btn">分享</summary>
+              <div class="share-box">
+                <label v-if="shareAt > 0"><input v-model="withTime" type="checkbox" /> 從 {{ clock(shareAt) }} 開始</label>
+                <button class="btn primary" @click="shareEp">分享這一集</button>
+              </div>
+            </details>
+          </div>
+          <div>
+            <label class="mini-switch"><input v-model="settings.autoplay" type="checkbox" role="switch" class="switch" />自動播放</label>
+            <RouterLink v-if="prev" class="btn prev" :to="linkTo(prev)" aria-label="上一集">‹<span> 上一集</span></RouterLink>
+            <RouterLink v-if="next" class="btn primary" :class="{ pulse: endedHere }" :to="linkTo(next)">下一集 ›</RouterLink>
+          </div>
         </div>
       </div>
       <div v-if="countdown" class="countdown" role="status">
-        <span><b>{{ countdown }}</b> 秒後播放下一集<template v-if="next"> · {{ epName(epAt(detail, next)) }}</template></span>
+        <span><b>{{ countdown }}</b> 秒後播放<template v-if="next"> {{ epName(epAt(detail, next)) }} {{ nextSub }}</template></span>
         <button class="btn" @click="cancelCountdown">取消</button>
-      </div>
-      <div class="watch-tools">
-        <label class="mini-switch"><input v-model="settings.autoplay" type="checkbox" role="switch" class="switch" />自動播放下一集</label>
-        <details class="keys pop">
-          <summary>快捷鍵</summary>
-          <dl><template v-for="[k, v] in KEY_HELP" :key="k"><dt>{{ k }}</dt><dd>{{ v }}</dd></template></dl>
-        </details>
       </div>
     </div>
     <div class="side">

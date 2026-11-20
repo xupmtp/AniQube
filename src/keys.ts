@@ -3,11 +3,6 @@ export type KeyAction =
   | { do: 'toggle' } | { do: 'seek'; by: number } | { do: 'jump'; frac: number }
   | { do: 'fullscreen' } | { do: 'mute' } | { do: 'next' } | { do: 'prev' };
 
-export const KEY_HELP: [string, string][] = [
-  ['空白鍵／K', '播放／暫停'], ['← ／ →', '倒退／快轉 10 秒'], ['0～9', '跳到影片的 0%～90%'],
-  ['F', '全螢幕'], ['M', '靜音'], ['N ／ P', '下一集／上一集'],
-];
-
 /** 按鍵 → 動作；有修飾鍵（Ctrl、Cmd、Alt）就不攔，留給瀏覽器 */
 export function keyAction(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean }): KeyAction | null {
   if (e.ctrlKey || e.metaKey || e.altKey) return null;
