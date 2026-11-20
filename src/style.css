@@ -50,8 +50,6 @@ main { min-height: calc(100vh - 120px); }
 .me-menu { position: absolute; right: 0; top: calc(100% + 10px); z-index: 25; width: 210px; padding: var(--s2); border-radius: var(--r); border: 1px solid var(--line); background: var(--ink-2); box-shadow: 0 18px 40px #000c; }
 .me-menu button { display: block; width: 100%; min-height: 44px; padding: 0 var(--s3); border: 0; border-radius: 6px; background: none; text-align: left; cursor: pointer; }
 .me-menu button:hover, .me-menu button:focus-visible { background: #ffffff0f; }
-.me-menu hr { border: 0; border-top: 1px solid var(--line); margin: var(--s2) 0; }
-.me-cap { margin: 0; padding: var(--s1) var(--s3); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; color: var(--dim); }
 
 /* ── 主打 ── */
 .hero { position: relative; min-height: 78vh; background-size: cover; background-position: center 20%; display: flex; align-items: flex-end; }
@@ -64,9 +62,10 @@ main { min-height: calc(100vh - 120px); }
 .meta { color: var(--mute); margin: 0 0 var(--s3); font-variant-numeric: tabular-nums; }
 .hero .meta { color: #d6cfc5; text-shadow: 0 1px 8px #000; }
 .chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0 0 var(--s6); padding: 0; }
-.chips span, .chips button { padding: 4px 12px; border-radius: 999px; background: #ffffff0f; border: 1px solid #ffffff24; font-size: var(--fs-sm); line-height: 1.6; }
+.chips span, .chips button, .chips a { padding: 4px 12px; border-radius: 999px; background: #ffffff0f; border: 1px solid #ffffff24; font-size: var(--fs-sm); line-height: 1.6; }
 .chips button { min-height: 40px; padding: 8px 16px; cursor: pointer; transition: background .2s, border-color .2s, color .2s; }
-.chips button:hover { background: #ffffff1f; border-color: #ffffff40; }
+.chips button:hover, .chips a:hover { background: #ffffff1f; border-color: #ffffff40; }
+.chips a { transition: background .2s, border-color .2s; }
 .chips button.on { background: var(--shu); border-color: var(--shu); color: #fff; font-weight: 700; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--s3); }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); min-height: 46px; padding: 10px 26px; border-radius: 999px; border: 1px solid #ffffff33; background: #ffffff12; cursor: pointer; font-weight: 700; letter-spacing: .04em; transition: background .2s, transform .2s var(--ease), border-color .2s; }
@@ -139,6 +138,7 @@ main { min-height: calc(100vh - 120px); }
 .pv-meta { margin: 0; color: var(--mute); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .pv-score { color: var(--kin); font-weight: 700; margin-right: var(--s2); }
 .pv-g { margin: 0; color: var(--shu-hi); font-size: var(--fs-sm); }
+.pv-g a:hover { text-decoration: underline; }
 .pv-bar { height: 4px; background: #ffffff33; }
 .pv-bar i { display: block; height: 100%; background: var(--shu); }
 .pv-bar.on-card { position: absolute; left: 0; right: 0; bottom: 0; }
@@ -183,6 +183,9 @@ main { min-height: calc(100vh - 120px); }
 /* 一列橫捲；右緣淡出提示還有更多 */
 .lane-scroll { flex-wrap: nowrap; overflow-x: auto; margin: 0; padding: 2px 32px 2px 2px; scrollbar-width: none; mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
 .lane-scroll::-webkit-scrollbar { display: none; }
+/* 題材：換行排列（熱門 12 個＋已選，其餘收在「更多」） */
+.genre-chips { margin: 0; padding: 2px; }
+.chips button.genre-more { border-style: dashed; color: var(--shu-hi); }
 .lane-scroll button { flex: none; white-space: nowrap; }
 /* 桌面用滑鼠不好橫捲：分組照樣，但換行顯示全部 */
 @media (min-width: 900px) and (hover: hover) {
@@ -292,6 +295,12 @@ main { min-height: calc(100vh - 120px); }
 .opt { display: flex; align-items: center; justify-content: space-between; gap: var(--s6); padding: var(--s4); border: 1px solid var(--line); border-radius: var(--r); background: var(--ink-2); cursor: pointer; }
 .opt span { display: grid; gap: var(--s1); }
 .opt small { color: var(--mute); font-size: var(--fs-sm); }
+.opt + .opt { margin-top: var(--s3); }
+.opt .btn { flex: none; }
+.btn.danger { color: var(--shu-hi); border-color: var(--shu); }
+.settings .hint { margin: var(--s3) 0 0 var(--s4); font-size: var(--fs-sm); }
+.note-bar { margin: 0 0 var(--s6); padding: var(--s3) var(--s4); border: 1px solid var(--shu); border-radius: var(--r); background: var(--shu-bg); font-size: var(--fs-sm); }
+.note-bar a { color: var(--shu-hi); font-weight: 700; margin-left: var(--s2); }
 
 /* ── 分享 ── */
 .share-pop { position: relative; }

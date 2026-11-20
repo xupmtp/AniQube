@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { epName, posterOf } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
-import { clearHistory, historyIds, progress, watched } from '../store.ts';
+import { clearHistory, historyIds, progress, settings, watched } from '../store.ts';
 import type { Catalog, Detail } from '../types.ts';
 import { locate } from '../work.ts';
 
@@ -37,6 +37,7 @@ const enc = encodeURIComponent;
     <p v-else-if="!cat" class="state">載入中…</p>
     <template v-else>
       <div class="page-head"><h1>觀看紀錄</h1></div>
+      <p v-if="settings.pauseHistory" class="note-bar">觀看紀錄已暫停，播放時不會記錄進度和看過的集。<RouterLink to="/settings">到設定恢復記錄</RouterLink></p>
       <ol v-if="rows.length" class="history">
         <li v-for="r in rows" :key="r.w.id">
           <RouterLink class="h-thumb" :to="`/title/${enc(r.w.id)}`"><img :src="posterOf(r.w)" :alt="r.w.title" loading="lazy" /></RouterLink>

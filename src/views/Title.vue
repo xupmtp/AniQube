@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { epLabel, epNo, fmtDur, metaLine, playlistUrl, posterOf } from '../catalog.ts';
+import { epLabel, epNo, fmtDur, metaLine, playlistUrl, posterOf, tagLink } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
-import { clearHistory, inList, isWatched, markSeen, progress, settings, toggleList, watched } from '../store.ts';
+import { inList, isWatched, markSeen, progress, settings, toggleList } from '../store.ts';
 import type { Detail, Work } from '../types.ts';
 import { firstSpot, locate, unionRows } from '../work.ts';
 import { pageUrl, share } from '../share.ts';
@@ -48,8 +48,6 @@ function pickSeason(s: number) { sel.value = { s }; }
 const more = ref(false);
 watch(id, () => { more.value = false; });
 const long = computed(() => { const d = detail.value?.desc ?? ''; return d.length > 140 || d.split('\n').filter(Boolean).length > 4; });
-const hasHistory = computed(() => !!progress[id.value] || !!watched[id.value]?.length);
-function wipe() { if (confirm('清除這部作品的觀看紀錄？續播進度和看過的標記都會消失。')) clearHistory(id.value); }
 const enc = encodeURIComponent;
 </script>
 
@@ -63,7 +61,7 @@ const enc = encodeURIComponent;
         <div>
           <h1>{{ work.title }}</h1>
           <p class="meta">{{ metaLine(work) }}<template v-if="work.score"> · ★ {{ (work.score / 10).toFixed(1) }}</template></p>
-          <p class="chips"><span v-for="g in [...work.genres, ...work.tags]" :key="g">{{ g }}</span></p>
+          <p class="chips"><RouterLink v-for="g in [...work.genres, ...work.tags]" :key="g" :to="tagLink(g)">{{ g }}</RouterLink></p>
         </div>
       </div>
       <div v-if="detail.desc" class="desc-box">
@@ -79,7 +77,6 @@ const enc = encodeURIComponent;
         <RouterLink class="btn primary" :to="`/watch/${enc(work.id)}`">▶ {{ resume ? '繼續觀看' : '播放' }}</RouterLink>
         <button class="btn" @click="toggleList(work.id)">{{ inList(work.id) ? '✓ 已在片單' : '＋ 加入片單' }}</button>
         <button class="btn" @click="share(`${work.title}｜動漫立方`, pageUrl(`/title/${enc(work.id)}`))">分享</button>
-        <button v-if="hasHistory" class="btn ghost" @click="wipe">清除觀看紀錄</button>
       </div>
 
       <div class="pickers">

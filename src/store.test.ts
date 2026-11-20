@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clearHistory, clearProgress, exportBackup, hasNew, historyIds, lastWatched, isWatched, markSeen, markWatched, mergeBackup, migrateIds, myList, parseBackup, progress, seen, setProgress, toggleList } from './store.ts';
+import { clearAllHistory, clearHistory, clearProgress, exportBackup, hasNew, historyIds, lastWatched, isWatched, markSeen, markWatched, mergeBackup, migrateIds, myList, parseBackup, progress, seen, setProgress, toggleList } from './store.ts';
 
 test('hasNew：只看片單與繼續觀看裡的作品，以上次看到時的更新時間為基準', () => {
   const w = (id: string, updated: string) => ({ id, updated });
@@ -60,4 +60,18 @@ test('migrateIds：作品合併後，舊 ID 的紀錄搬到新 ID，兩邊都有
   assert.ok(isWatched('new', 'e1') && isWatched('new', 'e9'));
   assert.ok(lastWatched.new > 0 && lastWatched.old === undefined);
   clearHistory('new'); myList.splice(0);
+});
+
+test('清除全部觀看紀錄：進度、看過、觀看時間全清，片單與有新集的基準保留', () => {
+  toggleList('keep'); setProgress('keep', 'e1', 10); markWatched('keep', 'e1'); setProgress('other', 'e3', 20);
+  clearAllHistory();
+  assert.deepEqual(historyIds(), []);
+  assert.equal(lastWatched.keep, undefined);
+  assert.ok(myList.includes('keep'));
+  assert.ok(seen.keep);
+});
+
+test('備份：設定的開關都會帶回來，型別不對的略過', () => {
+  const b = parseBackup(JSON.stringify({ app: 'aniqube', settings: { autoplay: false, pauseHistory: true, newestFirst: 'yes' } }))!;
+  assert.deepEqual(b.settings, { autoplay: false, pauseHistory: true });
 });

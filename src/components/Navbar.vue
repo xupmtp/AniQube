@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { exportBackup, mergeBackup, parseBackup } from '../store.ts';
 
 const router = useRouter();
 const route = useRoute();
 const q = ref('');
 const solid = ref(false);
 const onScroll = () => { solid.value = window.scrollY > 40; };
-// 右上角個人選單（仿 Netflix）：片單捷徑、備份與還原
+// 右上角個人選單（仿 Netflix）：片單、觀看紀錄、設定（備份與還原在設定頁）
 const open = ref(false);
 const menuEl = ref<HTMLElement | null>(null);
-const file = ref<HTMLInputElement | null>(null);
 const onDoc = (e: Event) => { if (open.value && !menuEl.value?.contains(e.target as Node)) open.value = false; };
 const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') open.value = false; };
 onMounted(() => {
@@ -23,24 +21,6 @@ onUnmounted(() => {
   document.removeEventListener('click', onDoc); document.removeEventListener('keydown', onKey);
 });
 function go(path: string) { open.value = false; router.push(path); }
-function download() {
-  open.value = false;
-  const url = URL.createObjectURL(new Blob([JSON.stringify(exportBackup(), null, 1)], { type: 'application/json' }));
-  const a = Object.assign(document.createElement('a'), { href: url, download: `aniqube-備份-${new Date().toISOString().slice(0, 10)}.json` });
-  a.click();
-  URL.revokeObjectURL(url);
-}
-function pick() { open.value = false; file.value?.click(); }
-async function restore(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const f = input.files?.[0];
-  input.value = '';
-  if (!f) return;
-  const b = parseBackup(await f.text());
-  if (!b) { alert('這不是動漫立方的備份檔，沒有匯入任何資料。'); return; }
-  const r = mergeBackup(b);
-  alert(`已合併匯入：片單新增 ${r.list} 部、續播進度更新 ${r.progress} 部、看過的集新增 ${r.watched} 集。`);
-}
 
 function search() {
   const v = q.value.trim();
@@ -71,12 +51,7 @@ function search() {
         <button role="menuitem" @click="go('/list')">我的片單</button>
         <button role="menuitem" @click="go('/history')">觀看紀錄</button>
         <button role="menuitem" @click="go('/settings')">設定</button>
-        <hr />
-        <p class="me-cap">備份與還原</p>
-        <button role="menuitem" @click="download">匯出備份檔</button>
-        <button role="menuitem" @click="pick">匯入備份檔</button>
       </div>
-      <input ref="file" type="file" accept="application/json,.json" hidden @change="restore" />
     </div>
   </header>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { LocationQueryValue } from 'vue-router';
 import { FORMATS, ORIGINS, SORTS, STATUS, filterWorks, sortWorks, topGenres } from '../catalog.ts';
@@ -14,9 +14,15 @@ const cat = ref<Catalog | null>(null);
 const err = ref('');
 const limit = ref(60);
 const open = ref(false); // 篩選面板；平常收起來，只留搜尋、排序與已選條件
+// 點面板以外的地方或按 Esc 收起（點「篩選」按鈕本身由按鈕切換）
+const panelEl = ref<HTMLElement | null>(null), toggleEl = ref<HTMLElement | null>(null);
+const onDoc = (e: Event) => { if (open.value && !panelEl.value?.contains(e.target as Node) && !toggleEl.value?.contains(e.target as Node)) open.value = false; };
+const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') open.value = false; };
 onMounted(async () => {
+  document.addEventListener('click', onDoc); document.addEventListener('keydown', onKey);
   try { cat.value = await loadCatalog(); } catch (e) { err.value = e instanceof Error ? e.message : String(e); }
 });
+onUnmounted(() => { document.removeEventListener('click', onDoc); document.removeEventListener('keydown', onKey); });
 
 const str = (v: LocationQueryValue | LocationQueryValue[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
 const filters = computed<Filters>(() => ({
@@ -52,13 +58,12 @@ const clearAll = () => router.replace({ query: filters.value.q ? { q: filters.va
 watch(() => route.query, () => { limit.value = 60; });
 const works = computed(() => cat.value?.works ?? []);
 const result = computed(() => sortWorks(filterWorks(works.value, filters.value), sort.value));
-// 題材、標籤各一列（依作品數排序）；標籤是 sync 端另外收的那幾個（異世界、轉生⋯）
-const tagNames = computed(() => new Set(works.value.flatMap((w) => w.tags)));
-const ranked = computed(() => topGenres(works.value, 60));
-const genreChips = computed(() => ranked.value.filter((g) => !tagNames.value.has(g)));
-const tagChips = computed(() => ranked.value.filter((g) => tagNames.value.has(g)));
+// 題材一列（AniList 的題材與標籤合在一起，觀看者不需要分）：依作品數由多到少，平常只列前 12 個與已選的，其餘收在「更多」
+const allGenres = computed(() => topGenres(works.value, Infinity));
+const moreGenres = ref(false);
+const genreChips = computed(() => (moreGenres.value ? allGenres.value : allGenres.value.filter((g, i) => i < 12 || filters.value.genres.includes(g))));
+const hiddenGenres = computed(() => allGenres.value.length - genreChips.value.length);
 const origins = computed(() => Object.keys(ORIGINS).filter((k) => works.value.some((w) => w.origin === k)));
-const clearLane = (lane: string[]) => set({ genre: filters.value.genres.filter((g) => !lane.includes(g)).join(',') });
 const years = computed(() => [...new Set(works.value.map((s) => s.year).filter((y): y is number => y != null))].sort((a, b) => b - a));
 </script>
 
@@ -74,25 +79,19 @@ const years = computed(() => [...new Set(works.value.map((s) => s.year).filter((
             <option v-for="(label, k) in SORTS" :key="k" :value="k">{{ label }}</option>
           </select>
         </label>
-        <button class="toggle" :class="{ on: open || picked.length }" :aria-expanded="open" aria-controls="filter-panel" @click="open = !open">
+        <button ref="toggleEl" class="toggle" :class="{ on: open || picked.length }" :aria-expanded="open" aria-controls="filter-panel" @click="open = !open">
           篩選<template v-if="picked.length"> · {{ picked.length }}</template>
           <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M4 8h8M6 12h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none" /></svg>
         </button>
       </div>
 
-      <div v-if="open" id="filter-panel" class="panel">
+      <div v-if="open" id="filter-panel" ref="panelEl" class="panel">
         <div class="lane">
           <span class="lane-label">題材</span>
-          <div class="lane-scroll chips">
-            <button :class="{ on: !genreChips.some((g) => filters.genres.includes(g)) }" @click="clearLane(genreChips)">全部</button>
+          <div class="chips genre-chips">
+            <button :class="{ on: !filters.genres.length }" @click="set({ genre: '' })">全部</button>
             <button v-for="g in genreChips" :key="g" :class="{ on: filters.genres.includes(g) }" :aria-pressed="filters.genres.includes(g)" @click="toggleGenre(g)">{{ g }}</button>
-          </div>
-        </div>
-        <div class="lane">
-          <span class="lane-label">標籤</span>
-          <div class="lane-scroll chips">
-            <button :class="{ on: !tagChips.some((g) => filters.genres.includes(g)) }" @click="clearLane(tagChips)">全部</button>
-            <button v-for="g in tagChips" :key="g" :class="{ on: filters.genres.includes(g) }" :aria-pressed="filters.genres.includes(g)" @click="toggleGenre(g)">{{ g }}</button>
+            <button v-if="moreGenres || hiddenGenres" class="genre-more" :aria-expanded="moreGenres" @click="moreGenres = !moreGenres">{{ moreGenres ? '收起 ▴' : `更多 ${hiddenGenres} ▾` }}</button>
           </div>
         </div>
         <div class="lane">

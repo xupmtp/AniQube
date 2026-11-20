@@ -24,10 +24,13 @@ watch(watched, () => save('aniqube:watched:works', watched), { deep: true });
 export const lastWatched = reactive<Record<string, number>>(load('aniqube:last:works', {}));
 watch(lastWatched, () => save('aniqube:last:works', lastWatched), { deep: true });
 // 設定（設定頁）：之後新增的偏好也放這裡
-// newestFirst：集數列表由新到舊（只改列表順序，「下一集」仍往後）
-export interface Settings { autoplay: boolean; newestFirst: boolean }
-export const settings = reactive<Settings>({ autoplay: true, newestFirst: false, ...load<Partial<Settings>>('aniqube:settings', {}) });
+// newestFirst：集數列表由新到舊（只改列表順序，「下一集」仍往後）；pauseHistory：暫停記錄觀看紀錄（播放頁不寫進度、不標看過）
+export interface Settings { autoplay: boolean; newestFirst: boolean; pauseHistory: boolean }
+export const settings = reactive<Settings>({ autoplay: true, newestFirst: false, pauseHistory: false, ...load<Partial<Settings>>('aniqube:settings', {}) });
 watch(settings, () => save('aniqube:settings', settings), { deep: true });
+// 播放器音量與靜音：換集、重新整理後沿用。跟著裝置走（喇叭、耳機不同），不放進備份檔
+export const volume = reactive<{ level: number; muted: boolean }>(load('aniqube:volume', { level: 100, muted: false }));
+watch(volume, () => save('aniqube:volume', volume), { deep: true });
 
 /** 作品 ID 改了（例如跨頻道合併）：把舊 ID 的續播、片單、看過、觀看時間搬到新 ID，兩邊都有就合併 */
 export function migrateIds(moved: Record<string, string>) {
@@ -64,6 +67,8 @@ export function markWatched(id: string, ep: string) { const l = (watched[id] ??=
 export const isWatched = (id: string, ep: string) => !!watched[id]?.includes(ep);
 /** 清除觀看紀錄：進度與看過的集一起清掉（只想從繼續觀看拿掉用 clearProgress） */
 export function clearHistory(id: string) { delete progress[id]; delete watched[id]; delete lastWatched[id]; }
+/** 清除全部作品的觀看紀錄（片單、有新集的基準、設定不動） */
+export function clearAllHistory() { for (const id of historyIds()) clearHistory(id.id); }
 /** 觀看紀錄：有看過的集或有進度的作品，依最後觀看時間新到舊；沒有時間的（舊紀錄）排最後 */
 export const historyIds = () => [...new Set([...Object.keys(watched), ...Object.keys(progress)])]
   .map((id) => ({ id, at: lastWatched[id] ?? progress[id]?.at ?? 0 }))
@@ -98,7 +103,7 @@ export function parseBackup(text: string): Backup | null {
   const lastIn: Record<string, number> = {}; // 較早的備份檔沒有這欄
   for (const [k, v] of Object.entries(isObj(j.last) ? j.last : {})) if (typeof v === 'number') lastIn[k] = v;
   const settingsIn: Partial<Settings> = {};
-  if (isObj(j.settings) && typeof j.settings.autoplay === 'boolean') settingsIn.autoplay = j.settings.autoplay;
+  for (const k of ['autoplay', 'newestFirst', 'pauseHistory'] as const) if (isObj(j.settings) && typeof j.settings[k] === 'boolean') settingsIn[k] = j.settings[k];
   return { app: 'aniqube', version: 1, exportedAt: typeof j.exportedAt === 'string' ? j.exportedAt : '', list: strs(j.list), progress: progressIn, watched: watchedIn, seen: seenIn, last: lastIn, settings: settingsIn };
 }
 

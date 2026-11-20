@@ -5,7 +5,7 @@ import { epLabel, epName, epNo, fmtDur, ytUrl } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
 import { loadYT } from '../player.ts';
 import type { YTPlayer } from '../player.ts';
-import { clearProgress, isWatched, markSeen, markWatched, progress, setProgress, settings } from '../store.ts';
+import { clearProgress, isWatched, markSeen, markWatched, progress, setProgress, settings, volume } from '../store.ts';
 import { isTyping, keyAction } from '../keys.ts';
 import { clock, pageUrl, share } from '../share.ts';
 import type { Detail, Episode } from '../types.ts';
@@ -92,9 +92,14 @@ async function start() {
     player = new YT.Player(target, {
       videoId: e.id, width: '100%', height: '100%',
       playerVars: { autoplay: 1, start: at, rel: 0, playsinline: 1, origin: location.origin },
-      events: { onStateChange: (ev: { data: number }) => { if (ev.data === 0) ended(); }, onError: () => { failed.value = true; } },
+      events: { onReady: applyVolume, onStateChange: (ev: { data: number }) => { if (ev.data === 0) ended(); }, onError: () => { failed.value = true; } },
     });
   } catch { failed.value = true; }
+}
+
+// 音量與靜音沿用上次（換集時同一個播放器會保留，重新建立時才需要套用）
+function applyVolume() {
+  try { player?.setVolume(volume.level); if (volume.muted) player?.mute(); else player?.unMute(); } catch { /* 播放器還沒就緒 */ }
 }
 
 // 一集播完：自動播放開著就在資訊列倒數 5 秒（不能疊在 YouTube 播放器上），關著就停住並提示「下一集」
@@ -105,7 +110,7 @@ function cancelCountdown() { clearInterval(tick); countdown.value = null; }
 function ended() {
   // 先取出下一集：網址沒帶集數時位置跟著進度走，setProgress 之後 next 就會變成再下一集
   const n = next.value;
-  if (!n) { clearProgress(id.value); return; }
+  if (!n) { if (!settings.pauseHistory) clearProgress(id.value); return; }
   const e = epAt(detail.value!, n);
   if (!settings.autoplay) { endedHere.value = true; return; }
   cancelCountdown(); // YouTube 偶爾連送兩次「播完」，不然會有兩個計時器、倒數快一倍
@@ -113,7 +118,7 @@ function ended() {
   tick = window.setInterval(() => {
     if (countdown.value! > 1) { countdown.value!--; return; }
     cancelCountdown();
-    setProgress(id.value, e.id, 0, e.sec);
+    if (!settings.pauseHistory) setProgress(id.value, e.id, 0, e.sec);
     router.replace(`/watch/${enc(id.value)}/${e.id}`);
   }, 1000);
 }
@@ -156,10 +161,13 @@ function onKey(ev: KeyboardEvent) {
 window.addEventListener('keydown', onKey);
 
 watch(() => ep.value?.id, (v) => { cancelCountdown(); endedHere.value = false; if (v) void start(); });
-// 每 5 秒記一次進度；前 3 秒不記，避免剛開始就把上次的位置洗成 0
+// 每 5 秒記一次進度與音量；前 3 秒不記進度，避免剛開始就把上次的位置洗成 0。暫停觀看紀錄時只記音量
+// （YouTube 沒有音量變動事件，只能輪詢）
 const timer = window.setInterval(() => {
   if (!player || !ep.value || ep.value.ext) return;
   try {
+    volume.level = player.getVolume(); volume.muted = player.isMuted();
+    if (settings.pauseHistory) return;
     const t = player.getCurrentTime();
     if (t > 3) setProgress(id.value, ep.value.id, t, ep.value.sec);
     if (t > 30) markWatched(id.value, ep.value.id); // 播超過 30 秒算看過

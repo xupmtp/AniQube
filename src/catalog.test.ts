@@ -39,7 +39,6 @@ test('篩選：題材（含標籤）要全部符合，其餘欄位精確比對',
 test('排序：沒有評分的排最後、首播時間含季度、名稱用繁中排序', () => {
   assert.equal(ids(sortWorks(all, 'popularity')), 'bca');
   assert.equal(ids(sortWorks(all, 'score')), 'cab');
-  assert.equal(ids(sortWorks(all, 'year')), 'bac');
   assert.equal(ids(sortWorks(all, 'updated'))[0], 'b');
   assert.equal(ids(sortWorks(all, 'views')), 'bca');
   assert.equal(all.map((x) => x.id).join(''), 'abc'); // 不改動原陣列

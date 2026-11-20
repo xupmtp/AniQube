@@ -2,8 +2,7 @@
 import type { Work } from './types.ts';
 
 export const SORTS = {
-  popularity: '人氣', score: '評分', trending: '趨勢', year: '首播時間',
-  updated: '最近更新', views: '觀看數', eps: '集數', title: '名稱',
+  popularity: '人氣', score: '評分', trending: '趨勢', updated: '最近更新', views: '觀看數',
 } as const;
 export type SortKey = keyof typeof SORTS;
 
@@ -14,7 +13,6 @@ export const STATUS: Record<string, string> = {
   RELEASING: '連載中', FINISHED: '已完結', NOT_YET_RELEASED: '未播出', CANCELLED: '已取消', HIATUS: '暫停中',
 };
 export const ORIGINS: Record<string, string> = { JP: '日本', CN: '中國', KR: '韓國', TW: '台灣' };
-const SEASON_ORDER: Record<string, number> = { WINTER: 0, SPRING: 1, SUMMER: 2, FALL: 3 };
 
 export interface Filters {
   q: string; genres: string[]; origin: string; year: string; status: string; format: string;
@@ -36,19 +34,14 @@ export function filterWorks(all: Work[], f: Filters): Work[] {
   });
 }
 
-const when = (s: Work) => (s.year == null ? -1 : s.year * 10 + (SEASON_ORDER[s.season ?? ''] ?? 0));
-
 export function sortWorks(list: Work[], key: SortKey): Work[] {
   const out = [...list];
   switch (key) {
     case 'popularity': return out.sort((a, b) => b.popularity - a.popularity);
     case 'score': return out.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
     case 'trending': return out.sort((a, b) => b.trending - a.trending);
-    case 'year': return out.sort((a, b) => when(b) - when(a));
     case 'updated': return out.sort((a, b) => b.updated.localeCompare(a.updated));
     case 'views': return out.sort((a, b) => b.views - a.views);
-    case 'eps': return out.sort((a, b) => b.eps - a.eps);
-    case 'title': return out.sort((a, b) => a.title.localeCompare(b.title, 'zh-Hant'));
   }
 }
 
@@ -98,6 +91,9 @@ export function metaLine(s: Work): string {
       : s.totalEps && s.eps <= s.totalEps ? `${s.eps} / ${s.totalEps} 集` : `${s.eps} 集可看`];
   return parts.filter(Boolean).join(' · ');
 }
+
+/** 題材、標籤的連結：到瀏覽頁只套用這一個條件（瀏覽頁的 genre 參數題材與標籤共用） */
+export const tagLink = (g: string) => ({ path: '/browse', query: { genre: g } });
 
 /** 集數：「12」；拆成兩半的集「240上」「240下」 */
 export const epNo = (ep: { n: number; part?: string }): string => `${Math.floor(ep.n)}${ep.part ?? ''}`;
