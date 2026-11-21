@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-11-20T01:46:47.021Z",
- "units": 296,
+ "generatedAt": "2026-11-21T01:21:19.895Z",
+ "units": 319,
  "unmatched": [
   {
    "id": "PL12UaAf_xzfpJ5cZMFVbaX8sczJfumXTd",
@@ -54,6 +54,12 @@
   }
  ],
  "guessed": [
+  {
+   "id": "PLL1scbx1bl80",
+   "title": "夏目友人帳 (全部集數)｜Muse木棉花 動畫 線上看",
+   "anilistId": 4081,
+   "how": "first"
+  },
   {
    "id": "PLxOs22nkVmnJ_dgTuecVIaIYW2iXOOiML",
    "title": "【Members Premiere 会员抢先看】《灵剑尊》Spirit Sword Sovereign | 楚行云万仞归元，初生之虎无惧天下挑战 | 腾讯视频 - 动漫",
@@ -122,7 +128,7 @@
    "id": "ad6f4f6fe8",
    "title": "死靈法師！我即是天災",
    "playable": 1,
-   "members": 37
+   "members": 39
   },
   {
    "id": "7e37d9e878",
@@ -199,7 +205,7 @@
  ],
  "desc": {
   "muse": {
-   "zh": 293,
+   "zh": 294,
    "en": 7
   },
   "anione": {
@@ -239,10 +245,10 @@
   "機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster"
  ],
  "counts": {
-  "works": 688,
+  "works": 689,
   "seasons": 2556,
   "unmatched": 10,
-  "guessed": 1,
+  "guessed": 2,
   "fuzzy": 7,
   "moved": 77
  }
