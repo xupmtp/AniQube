@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-11-21T01:21:19.895Z",
- "units": 319,
+ "generatedAt": "2026-11-22T00:23:52.992Z",
+ "units": 3322,
  "unmatched": [
   {
    "id": "PL12UaAf_xzfpJ5cZMFVbaX8sczJfumXTd",
@@ -30,7 +30,7 @@
   {
    "id": "PLciCwZp6ms38",
    "title": "《混在末日，独自成仙》A New Way for Sanctification | 腾讯视频 - 动漫",
-   "eps": 2
+   "eps": 3
   },
   {
    "id": "PLSxp4284QcPU",
@@ -205,7 +205,7 @@
  ],
  "desc": {
   "muse": {
-   "zh": 294,
+   "zh": 293,
    "en": 7
   },
   "anione": {
@@ -245,11 +245,11 @@
   "機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster"
  ],
  "counts": {
-  "works": 689,
-  "seasons": 2556,
+  "works": 688,
+  "seasons": 2555,
   "unmatched": 10,
   "guessed": 2,
   "fuzzy": 7,
-  "moved": 77
+  "moved": 76
  }
 }
