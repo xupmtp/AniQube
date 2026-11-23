@@ -11,6 +11,13 @@ Every day GitHub Actions runs `npm run sync`. It uses the YouTube Data API to fe
 
 For the full picture (architecture, what each module does, data formats and the sync pipeline) see [docs/architecture.html](docs/architecture.html) (in Traditional Chinese).
 
+## Why some episodes only play on YouTube
+The site only uses YouTube's embedded player. The two kinds of videos below play on YouTube but not on the site; the title page marks them "watch on YouTube", and the watch page says the episode can't be played here, with a button that opens it on YouTube:
+- **Embedding disabled by the channel**: the uploader turned off "Allow embedding" for the video, so it only plays on youtube.com or in the app (for example, episode 1 of 亂世千金 uploaded by Mighty Media; channels often do this for premiere episodes).
+- **Age-restricted**: videos YouTube marks as age-restricted require signing in and confirming your age, and never play in an embedded player.
+
+These are channel and YouTube settings, and YouTube's terms don't allow working around them, so they are left as they are. Each video is rechecked about every 7 days during sync, so if a channel turns embedding back on, the episode becomes playable on the site again within a week. As of November 2026 this affects about 27 episodes (2 with embedding disabled, 25 age-restricted).
+
 ## First-time setup
 1. Create a public GitHub repo and push everything; in Settings → Pages → Source, choose GitHub Actions.
 2. In Settings → Secrets and variables → Actions, add `YOUTUBE_API_KEY`.

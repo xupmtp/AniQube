@@ -11,6 +11,13 @@
 
 架構、各程式職責、資料格式與同步流程的完整說明見 [docs/architecture.html](docs/architecture.html)。
 
+## 為什麼有些集只能去 YouTube 看
+站上只用 YouTube 的嵌入播放器，下面兩種影片在 YouTube 上能看、在站上不能播，作品頁標「在 YouTube 觀看」，播放頁顯示「這一集無法在站內播放」與前往 YouTube 的按鈕：
+- **頻道關閉嵌入**：上傳的頻道在影片設定裡關掉「允許嵌入」，只開放在 youtube.com 或 App 觀看（例：曼迪的《亂世千金》第 1 話，首播集常這樣做）。
+- **年齡限制**：YouTube 標成限制級的影片要登入並確認年齡，嵌入播放器一律不能播。
+
+這是頻道與 YouTube 的設定，依 YouTube 條款不能繞過，所以不修。同步時每支影片約每 7 天重查一次，頻道之後重新開放嵌入，最慢一週內會自動恢復站內播放。2026-11 全站約 27 集（2 集關閉嵌入、25 集年齡限制）。
+
 ## 第一次設定
 1. 建立 GitHub repo（public），推上所有檔案；Settings → Pages → Source 選 GitHub Actions。
 2. Settings → Secrets and variables → Actions 新增 `YOUTUBE_API_KEY`。
