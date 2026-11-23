@@ -544,3 +544,19 @@ test('episodeSubs：拆兩半的集不留「1A話」「(EP01上)」', () => {
 test('episodeSubs：作品名的部分比對不切在數字中間', () => {
   assert.deepEqual(episodeSubs(['虛構推理 第09話【鋼人七瀨攻略議會】｜Muse木棉花', '虛構推理 第10話【虛構爭奪】｜Muse木棉花', '虛構推理 第11話【最後的虛構】｜Muse木棉花'], ['虛構推理', '虛構推理 第1季']), ['鋼人七瀨攻略議會', '虛構爭奪', '最後的虛構']);
 });
+test('cleanDesc：劇情大綱、頁尾分隔線與片單、hashtag、代碼行、帶網址的宣傳行都拿掉', () => {
+  const story = '某作\n播出平台\n【劇情大綱】\n西元1333年，為日本的武士治國打下基礎的鎌倉幕府，因為深得信賴的幕臣的謀反而滅亡。\n【關注木棉花】';
+  assert.equal(cleanDesc(story), '西元1333年，為日本的武士治國打下基礎的鎌倉幕府，因為深得信賴的幕臣的謀反而滅亡。');
+  const ani = '群馬縣前橋市，高中一年級生過著平凡卻稍顯乏味的日常生活，直到某天一隻神秘的青蛙闖入了她的生活！\n\n✨播放清單 ► https://www.youtube.com/playlist?list=PLC18xlbCdwtSL5qQkemuo8Gey2FDTy6Vh\n🌍播放地區：香港、澳門、台灣\n—\n▮支持Ani-One中文官方頻道：\n#AniOne #前橋魔女 #正版動畫';
+  assert.equal(cleanDesc(ani), '群馬縣前橋市，高中一年級生過著平凡卻稍顯乏味的日常生活，直到某天一隻神秘的青蛙闖入了她的生活！');
+  const yw = '拥有特殊体质的少年封夕，在妖族与修行者的陪伴下，不断揭开自己前世的秘密，最终守护挚爱与苍生。\n\n更多精彩动漫官方超清\n《斗破苍穹》\n《武动乾坤》\n\nMJ-J6REJLD9-QYZ736';
+  assert.equal(cleanDesc(yw), '拥有特殊体质的少年封夕，在妖族与修行者的陪伴下，不断揭开自己前世的秘密，最终守护挚爱与苍生。');
+  assert.equal(cleanDesc('#腾讯视频动漫 #anime #SoulLand2 #斗罗大陆2绝世唐门 #peerlesstangclan #国漫 #动画 #修仙 #玄幻 #热血 #逆袭 #系统 #古风'), '');
+});
+test('ownDesc：只有一支時，標題的《》是這部作品、說明裡沒寫別部，就算是它的簡介', () => {
+  const desc = '【加入会员】▶▶▶https://bit.ly/x\n简介\n叶星云师傅羽化仙去，留下了一个势力庞大的天元神宗，叶星云成为了天元神宗新一任宗主。';
+  assert.ok(ownDesc(desc, undefined, ['萬界仙蹤'], false, '《万界仙踪》Wonderland | EP01-EP20 合集 | 腾讯视频 - 动漫'));
+  assert.equal(ownDesc(desc, undefined, ['萬界仙蹤'], false, 'Wonderland EP01-EP20 合集'), '');                    // 標題沒寫作品名
+  assert.equal(ownDesc(`${desc}\n《斗罗大陆》讲述唐三的故事，他在斗罗大陆上历经磨难，终成一代强者。`, undefined, ['萬界仙蹤'], false, '《万界仙踪》EP01-EP20 合集'), ''); // 說明裡寫了別部
+  assert.equal(cleanTitle('企鵝公路【木棉花電影院】｜Muse木棉花 動畫 線上看'), '企鵝公路');
+});

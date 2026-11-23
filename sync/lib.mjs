@@ -20,7 +20,7 @@ export function cleanTitle(raw) {
   const after = !m && /^[^｜|]*(總集篇|总集篇|特別篇|特别篇|劇場版|剧场版|OVA|OAD)[^｜|]*[｜|]\s*《(.+?)》/.exec(s);
   s = s.replace(/[｜|].*$/, '');
   if (after) s = `${after[2]} ${s}`;
-  s = s.replace(/【(Ani-One[^】]*|限時免費公開|國語|日語|粵語[^】]*)】/g, '');
+  s = s.replace(/【(Ani-One[^】]*|限時免費公開|國語|日語|粵語[^】]*|木棉花電影院)】/g, '');
   s = s.replace(/\([^)]*(字幕|配音|全部集數|全集數?|TV版|全)\)/g, '');
   s = s.replace(/（[^）]*）/g, '');
   return s.trim().replace(/^[-\s　]+|[-\s　]+$/g, '');
@@ -842,7 +842,7 @@ export function episodeSubs(titles, names = [], cn = false) {
 }
 
 // ── 中文簡介：頻道播放清單的說明，清掉宣傳雜訊（docs/features.md）──
-const DESC_JUNK = /https?:\/\/|www\.|@|#|訂閱|订阅|會員|会员|Member|下載|下载|APP|App|更新時間|更新时间|每周|每週|上映|播出|官網|官网|粉絲|粉丝|Facebook|Instagram|IG|Twitter|LINE|原作[／/:：]|導演[／/:：]|监督|監督[／/:：]|製作[／/:：]|動畫製作|声優|聲優[／/:：]|CAST|STAFF|Hottest|Subscribe|热播|熱播/i;
+const DESC_JUNK = /https?:\/\/|www\.|@|#|訂閱|订阅|線上看|线上看|免費收看|免费收看|播放清單|播放清单|播放地區|播放地区|播映|保留隨時|首播|上架|會員|会员|Member|下載|下载|APP|App|更新時間|更新时间|每周|每週|上映|播出|官網|官网|粉絲|粉丝|Facebook|Instagram|IG|Twitter|LINE|原作[／/:：]|導演[／/:：]|监督|監督[／/:：]|製作[／/:：]|動畫製作|声優|聲優[／/:：]|CAST|STAFF|Hottest|Subscribe|热播|熱播/i;
 const DESC_LEAD = /^\s*(☞|▶|►|👉|🔥|🗓|📅|\d{1,2}:\d{2})/u;
 
 /** 清理頻道寫的說明：騰訊有「简介」標題就只取其後，Muse 有【劇情簡介】就只取那一段；
@@ -851,16 +851,20 @@ export function cleanDesc(raw) {
   let lines = String(raw ?? '').split(/\r?\n/);
   const at = lines.findIndex((l) => /^\s*[简簡]介\s*[:：]?\s*$/.test(l));
   if (at >= 0) lines = lines.slice(at + 1);
-  const story = lines.findIndex((l) => /^\W*(劇情|故事|作品)簡介\W*$/u.test(l.trim())); // 【劇情簡介】、✧劇情簡介✧
+  const story = lines.findIndex((l) => /^\W*(劇情|故事|作品)(簡介|简介|大綱|大纲)\W*$/u.test(l.trim())); // 【劇情簡介】、✧劇情簡介✧、【劇情大綱】
   if (story >= 0) {
     lines = lines.slice(story + 1);
     const end = lines.findIndex((l) => /^\s*【|^[゜✧.━\s]{6,}$/.test(l));
     if (end > 0) lines = lines.slice(0, end);
   }
   lines = lines.map((l) => l.replace(/^[^\n]{0,40}》[^《》\n]{0,10}登陸Ani-One[^！!]*[！!]\s*/, ''));
-  // 關鍵字只刪短的宣傳行；長段落是劇情簡介（可能剛好提到「LINE WEBTOON」「播出」），只去掉網址
+  // 頁尾：分隔線（Ani-One 的「—」「————」、木棉花的「゜✧.━━」）、「▮支持」「➨訂閱」、「更多精彩動漫」片單（閱文）之後整段不要；切掉後要還剩一段才切
+  const tail = lines.findIndex((l) => /^\s*[—―─━\-=_＿]+\s*$|^\s*[゜ﾟ✧.━*+:｡\s]{6,}$|^\s*[▮➨]|更多精彩/.test(l));
+  if (tail > 0 && [...lines.slice(0, tail).join('')].length >= 30) lines = lines.slice(0, tail);
+  // 關鍵字只刪短的宣傳行（長短不算網址）；長段落是劇情簡介（可能剛好提到「LINE WEBTOON」「播出」），只去掉網址。
+  // 只有 hashtag 的行、像代碼的行（「MJ-J6REJLD9-QYZ736」）不管多長都刪
   const kept = lines
-    .filter((l) => !DESC_LEAD.test(l) && !(DESC_JUNK.test(l) && [...l].length < 80))
+    .filter((l) => !DESC_LEAD.test(l) && !(DESC_JUNK.test(l) && [...l.replace(/https?:\/\/\S+/g, '')].length < 80) && !/^\s*#\S*(\s+#\S*)*\s*$/.test(l) && !/^\s*[A-Z0-9]+(-[A-Z0-9]+)+\s*$/.test(l))
     .map((l) => l.replace(/https?:\/\/\S+/g, '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u200D]/gu, '').trim());
   const text = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   return [...text].length >= 30 ? text : '';
@@ -870,14 +874,14 @@ export function cleanDesc(raw) {
  * 影片說明當作品簡介。要像一段簡介（有一句 15 字以上、帶標點的句子，不是宣傳行或章節列表）。
  * 下一集的說明第一段不一樣，就是各集劇情（木棉花、Ani-One）：只有第 1 集、而且提到作品名的才當簡介（故事開頭）。
  * 每集一樣的是整部的簡介：提到作品名就用；沒提到（騰訊常不寫片名）時簡介裡寫的《》要是這部
- * （騰訊有些影片放別部的說明）。只有一集的要提到作品名。names：作品名與各季名
+ * （騰訊有些影片放別部的說明）。只有一集的（合集、劇場版）要提到作品名：說明裡寫了，或標題的《》是這部、說明裡沒寫別部。names：作品名與各季名
  */
 /** 同一部片重複上傳的比對鍵：去掉語言／頻道標記、「｜」後的頻道名（版本名留著）、電影／劇場版字樣，編、篇視為同字
  *  （「進擊的巨人-劇場版【前編 紅蓮的弓矢】」＝「【中日雙語字幕】電影「進擊的巨人劇場版-前篇 紅蓮的弓矢」」） */
 export const movieKey = (title) => norm(String(title).split(/[｜|]/).filter((s, i) => !i || !META.test(s)).join(' ').replace(/【([^】]*)】/g, (m, x) => (TAG.test(x) || META.test(x) ? '' : x))
   .replace(/[(（][^)）]*(字幕|配音|原聲)[^)）]*[)）]/g, '').replace(/劇場版|剧场版|電影|电影/g, '').replace(/編/g, '篇'));
 
-export function ownDesc(desc, next, names, first = false) {
+export function ownDesc(desc, next, names, first = false, title = '') {
   const text = cleanDesc(desc), after = cleanDesc(next);
   if (!text || !/[^\n《》【】]{15,}[，。！？；]/.test(text)) return '';
   const keys = names.map((n) => norm(toTrad(n))).filter((k) => k.length >= 2);
@@ -887,6 +891,8 @@ export function ownDesc(desc, next, names, first = false) {
   if (named) return text;
   const like = (x) => { const k = norm(x); return keys.some((n) => n.includes(k) || k.includes(n) || dice(bigrams(x), bigrams(n)) >= FUZZY); };
   const marks = [...toTrad(text).matchAll(/《(.+?)》/g)].map((m) => m[1]);
+  // 只有一支（合集、劇場版）：說明常不寫片名（騰訊、閱文），標題的《》是這部作品、說明裡也沒寫別部作品，就算是它的簡介
+  if (!after && [...toTrad(title).matchAll(/《(.+?)》/g)].some((m) => like(m[1])) && marks.every(like)) return text;
   return after && (!marks.length || marks.some(like)) ? text : '';
 }
 

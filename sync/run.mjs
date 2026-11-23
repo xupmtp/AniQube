@@ -390,7 +390,7 @@ report.memberLocked = []; // 幾乎只有會員限定、不收的作品（docs/a
     // 播放清單說明清不出中文時，改用第 1 集的影片說明（Ani-One 清單幾乎不寫說明）；規則見 ownDesc
     const zd = [...main.map(pick), ...all].find((d) => cleanDesc(d.desc));
     const names = [w.base, ...all.map((d) => d.name)];
-    const epDesc = (d) => ownDesc(videoDesc.get(d.episodes[0]?.id), videoDesc.get(d.episodes[1]?.id), names, (episodeNumber(d.episodes[0]?.title ?? '') ?? 9) <= 1); // 合輯拆過的季要看拆完的集；第 0 話（序章）也算第一集
+    const epDesc = (d) => ownDesc(videoDesc.get(d.episodes[0]?.id), videoDesc.get(d.episodes[1]?.id), names, (episodeNumber(d.episodes[0]?.title ?? '') ?? 9) <= 1, d.episodes[0]?.title); // 合輯拆過的季要看拆完的集；第 0 話（序章）也算第一集
     const ed = !zd && [...main.map(pick), ...all].find(epDesc);
     const zh = zd ? cleanDesc(zd.desc) : ed ? epDesc(ed) : '';
     const zc = zd || ed;
