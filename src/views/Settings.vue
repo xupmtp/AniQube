@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { clearAllHistory, exportBackup, historyIds, mergeBackup, parseBackup, settings } from '../store.ts';
+import { install, isIOS, promptInstall, standalone } from '../install.ts';
+
+// 安裝到主畫面：已經用 App 開啟、或這個瀏覽器不能安裝時整區不顯示
+const ios = !standalone() && isIOS();
+const showInstall = computed(() => !standalone() && (ios || !!install.prompt));
 
 // 備份與還原：沒有帳號，換裝置靠檔案搬資料（合併匯入，不會覆蓋這台裝置較新的進度）
 const file = ref<HTMLInputElement | null>(null);
@@ -73,5 +78,22 @@ function wipeAll() {
       <button class="btn" @click="file?.click()">匯入</button>
     </div>
     <input ref="file" type="file" accept="application/json,.json" hidden @change="restore" />
+
+    <template v-if="showInstall">
+      <h2>安裝到主畫面</h2>
+      <div v-if="ios" class="opt">
+        <span>
+          <strong>加到主畫面</strong>
+          <small>1. 點 Safari 下方的「分享」　2. 選「加入主畫面」　3. 按右上角「新增」。<br />主畫面 App 和 Safari 的片單、觀看紀錄是分開的，可以用上面的備份檔搬過去。</small>
+        </span>
+      </div>
+      <div v-else class="opt">
+        <span>
+          <strong>安裝動漫立方</strong>
+          <small>加到主畫面或桌面後像 App 一樣全螢幕開啟，片單與觀看紀錄和瀏覽器共用。</small>
+        </span>
+        <button class="btn" @click="promptInstall">安裝</button>
+      </div>
+    </template>
   </section>
 </template>

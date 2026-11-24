@@ -922,3 +922,25 @@ export function playableEps(seasons) {
 
 /** 幾乎只有會員限定的作品不收：有會員集、看得到的不到 12 集（一季），而且不到全部的 1/3（docs/adr/0009） */
 export const memberLocked = (playable, members) => members > 0 && playable < 12 && playable * 3 < playable + members;
+
+/**
+ * 相似作品（CONTEXT.md）：每部作品最多 max 部。先用 AniList 推薦（同一部作品各季的推薦分數加總，只留片庫裡有的、排除自己），
+ * 不足的用題材、標籤重疊最多的補，同分時人氣高的優先。
+ * works: [{ id, facets, popularity }]；recs: Map<作品ID, [AniList編號, 推薦分數][]>；aidOwner: Map<AniList編號, 作品ID>
+ */
+export function similarWorks(works, recs, aidOwner, max = 12) {
+  const out = new Map();
+  for (const w of works) {
+    const score = new Map();
+    for (const [aid, rating] of recs.get(w.id) ?? []) {
+      const o = aidOwner.get(aid);
+      if (o && o !== w.id && rating > 0) score.set(o, (score.get(o) ?? 0) + rating);
+    }
+    const list = [...score].sort((a, b) => b[1] - a[1]).slice(0, max).map(([id]) => id);
+    const mine = new Set(w.facets);
+    const fill = works.filter((o) => o.id !== w.id && !list.includes(o.id)).map((o) => [o, o.facets.filter((g) => mine.has(g)).length])
+      .filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1] || b[0].popularity - a[0].popularity);
+    out.set(w.id, [...list, ...fill.slice(0, max - list.length).map(([o]) => o.id)]);
+  }
+  return out;
+}

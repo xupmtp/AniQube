@@ -3,16 +3,18 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { epLabel, epNo, fmtDur, metaLine, playlistUrl, posterOf, tagLink } from '../catalog.ts';
 import { loadCatalog, loadDetail } from '../data.ts';
-import { inList, isWatched, markSeen, progress, settings, toggleList } from '../store.ts';
+import { hasWatched, inList, isWatched, markSeen, progress, settings, toggleList } from '../store.ts';
 import type { Detail, Work } from '../types.ts';
 import { firstSpot, locate, unionRows } from '../work.ts';
 import { pageUrl, share } from '../share.ts';
 import SpecialList from '../components/SpecialList.vue';
+import Row from '../components/Row.vue';
 
 const route = useRoute();
 const router = useRouter();
 const id = computed(() => String(route.params.id));
 const work = ref<Work | null>(null);
+const all = ref<Work[]>([]);
 const detail = ref<Detail | null>(null);
 const sel = ref({ s: 0 }); // 正在看哪一季的集數列表；s = -1 是劇場版與特別篇。配音、片源只在播放頁切換（docs/adr/0010）
 
@@ -22,6 +24,7 @@ watch(id, async (v) => {
     const cat = await loadCatalog();
     const to = cat.moved?.[v];
     if (to) { router.replace(`/title/${encodeURIComponent(to)}`); return; } // 作品合併後的舊網址
+    all.value = cat.works;
     work.value = cat.works.find((w) => w.id === v) ?? null;
     if (!work.value) throw new Error('missing');
     const det = await loadDetail(v);
@@ -44,6 +47,12 @@ const count = computed(() => rows.value.length);
 const seenRow = (ids: string[]) => ids.some((x) => isWatched(id.value, x)); // 看過以集數為準，不管哪個配音、片源
 
 function pickSeason(s: number) { sel.value = { s }; }
+// 相似作品：沒看過的在前，看過的排到後面並標「看過」（CONTEXT.md）
+const similar = computed(() => {
+  const byId = new Map(all.value.map((w) => [w.id, w]));
+  const list = (detail.value?.similar ?? []).map((x) => byId.get(x)).filter((w): w is Work => !!w);
+  return [...list.filter((w) => !hasWatched(w.id)), ...list.filter((w) => hasWatched(w.id))];
+});
 // 簡介預設 4 行，長的可以展開（換作品時收回）
 const more = ref(false);
 watch(id, () => { more.value = false; });
@@ -97,6 +106,7 @@ const enc = encodeURIComponent;
           </li>
         </ol>
       </template>
+      <Row class="similar" title="相似作品" :works="similar" seen />
     </div>
   </article>
 </template>

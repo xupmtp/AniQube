@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { standalone } from '../install.ts';
 import { useRoute, useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -20,6 +21,8 @@ onUnmounted(() => {
   window.removeEventListener('scroll', onScroll);
   document.removeEventListener('click', onDoc); document.removeEventListener('keydown', onKey);
 });
+// 主畫面 App 沒有瀏覽器的返回鍵：有上一頁時在最左邊補一顆
+const canBack = computed(() => (route.fullPath, standalone() && !!(history.state as { back?: string } | null)?.back));
 function go(path: string) { open.value = false; router.push(path); }
 
 function search() {
@@ -30,6 +33,7 @@ function search() {
 
 <template>
   <header class="nav" :class="{ solid: solid || route.path !== '/' }">
+    <button v-if="canBack" class="nav-back" aria-label="上一頁" @click="router.back()">‹</button>
     <RouterLink to="/" class="logo" aria-label="動漫立方 AniQube 首頁">
       <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
         <path d="M16 3 28 9.5v13L16 29 4 22.5v-13z" style="fill: var(--shu)" /><path d="M16 3 28 9.5 16 16 4 9.5z" style="fill: var(--shu-hi)" />

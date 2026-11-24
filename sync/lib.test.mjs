@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles, isMixed, episodeSubs, seasonLabel, isExtra, ownDesc, movieKey, playableEps, memberLocked, epPart, episodeFrame } from './lib.mjs';
+import { cleanTitle, parseHints, candidates, buildIndex, match, classifyVideo, episodeNumber, sortEpisodes, buildSeasons, buildStandalones, splitName, dubLabel, seasonNo, workBase, groupWorks, orderSeasons, cleanDesc, norm, isCollection, bundleName, bundleNames, bundleRange, pickBundles, isMixed, episodeSubs, seasonLabel, isExtra, ownDesc, movieKey, playableEps, memberLocked, epPart, episodeFrame, similarWorks } from './lib.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../sources.json', import.meta.url)));
 const ch = (key) => cfg.channels.find((c) => c.key === key);
@@ -559,4 +559,12 @@ test('ownDesc：只有一支時，標題的《》是這部作品、說明裡沒�
   assert.equal(ownDesc(desc, undefined, ['萬界仙蹤'], false, 'Wonderland EP01-EP20 合集'), '');                    // 標題沒寫作品名
   assert.equal(ownDesc(`${desc}\n《斗罗大陆》讲述唐三的故事，他在斗罗大陆上历经磨难，终成一代强者。`, undefined, ['萬界仙蹤'], false, '《万界仙踪》EP01-EP20 合集'), ''); // 說明裡寫了別部
   assert.equal(cleanTitle('企鵝公路【木棉花電影院】｜Muse木棉花 動畫 線上看'), '企鵝公路');
+});
+test('similarWorks：先用 AniList 推薦（各季加總、排除自己與片庫外），不足的用題材標籤重疊補', () => {
+  const w = (id, facets, popularity) => ({ id, facets, popularity });
+  const works = [w('a', ['奇幻', '動作'], 10), w('b', ['戀愛'], 50), w('c', ['奇幻', '動作'], 5), w('d', ['奇幻'], 99), w('e', ['運動'], 1)];
+  const aidOwner = new Map([[1, 'a'], [11, 'a'], [2, 'b'], [3, 'c']]);
+  const recs = new Map([['a', [[2, 30], [999, 80], [1, 5], [3, 10], [2, 5]]]]);
+  assert.deepEqual(similarWorks(works, recs, aidOwner, 4).get('a'), ['b', 'c', 'd']); // b 35 分、c 10 分；片庫外的 999、自己的 1 不算；d 補上（重疊 1），e 沒重疊不補
+  assert.deepEqual(similarWorks(works, new Map(), aidOwner, 2).get('c'), ['a', 'd']);   // 沒推薦：重疊 2 的 a 先，再來人氣高的 d
 });

@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { zstdDecompressSync } from 'node:zlib';
-import { ORIGINAL, buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, episodeNumber, movieKey, episodeSubs, ownDesc, isMixed, memberLocked, playableEps, parseHints, seasonLabel, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
+import { ORIGINAL, similarWorks, buildBundles, buildIndex, buildSeasons, buildStandalones, cleanDesc, episodeNumber, movieKey, episodeSubs, ownDesc, isMixed, memberLocked, playableEps, parseHints, seasonLabel, cleanTitle, dubLabel, groupWorks, match, norm, pickBundles, toTrad } from './lib.mjs';
 import { BLOCKED_GENRES, GENRES, TAGS } from './taxonomy.mjs';
 
 const KEY = process.env.YOUTUBE_API_KEY;
@@ -143,7 +143,7 @@ async function loadDataset() {
 const ANILIST = `query($ids:[Int],$page:Int){Page(page:$page,perPage:50){media(id_in:$ids,type:ANIME){
   id countryOfOrigin format status episodes season seasonYear averageScore popularity trending genres
   description(asHtml:false) bannerImage coverImage{large} tags{name rank isMediaSpoiler}
-  relations{edges{relationType node{id}}}}}}`;
+  relations{edges{relationType node{id}}} recommendations(sort:RATING_DESC,perPage:15){nodes{rating mediaRecommendation{id}}}}}}`;
 async function anilist(ids) {
   const out = new Map();
   for (let i = 0; i < ids.length; i += 50) {
@@ -341,6 +341,7 @@ function specialType(x) {
 }
 
 const works = [], workFiles = [];
+const workAids = new Map(); // 作品 ID → 它各季的 AniList 編號（算相似作品用）
 report.fuzzy = [];
 report.memberLocked = []; // 幾乎只有會員限定、不收的作品（docs/adr/0009）
 {
@@ -396,6 +397,7 @@ report.memberLocked = []; // 幾乎只有會員限定、不收的作品（docs/a
     const zc = zd || ed;
     const en = all.map((d) => plain(d.a?.description)).find(Boolean) ?? '';
     const desc = zh ? (zc.channel.origin === 'CN' ? toTrad(zh) : zh) : en.slice(0, 300);
+    workAids.set(id, [...new Set(all.map((d) => d.aid).filter(Boolean))]);
     workFiles.push({
       id, desc, descLang: zh ? 'zh' : 'en', members: main.map(pick).find((d) => d.members > 0)?.id ?? null,
       seasons: w.seasons.map((x) => ({
@@ -407,6 +409,15 @@ report.memberLocked = []; // 幾乎只有會員限定、不收的作品（docs/a
       })),
     });
   }
+}
+
+// 相似作品：AniList 推薦對回片庫的作品，不足的用題材、標籤補（CONTEXT.md「相似作品」）
+{
+  const aidOwner = new Map([...workAids].flatMap(([id, aids]) => aids.map((x) => [x, id])));
+  const recs = new Map([...workAids].map(([id, aids]) => [id, aids.flatMap((x) => (meta.get(x)?.recommendations?.nodes ?? []).map((r) => [r.mediaRecommendation?.id, r.rating ?? 0]))]));
+  const sim = similarWorks(works, recs, aidOwner);
+  for (const d of workFiles) d.similar = sim.get(d.id) ?? [];
+  report.similar = { fromAniList: works.filter((w) => (recs.get(w.id) ?? []).some(([x]) => aidOwner.has(x) && aidOwner.get(x) !== w.id)).length, works: works.length };
 }
 
 // 保護：片庫一次縮水超過三成視為異常，不覆蓋（舊格式沒有 works，視為第一次）

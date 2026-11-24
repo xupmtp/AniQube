@@ -46,6 +46,7 @@ main { min-height: calc(100vh - 120px); }
 .me { position: relative; }
 .me-btn { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--ink-3); color: var(--text); cursor: pointer; transition: border-color .2s; }
 .me-btn svg { width: 20px; height: 20px; }
+.nav-back { flex: none; width: 40px; height: 40px; margin-right: calc(var(--s8) * -1 + var(--s2)); border: 0; background: none; color: var(--text); font-size: 28px; line-height: 1; cursor: pointer; }
 .me-btn:hover, .me-btn.on { border-color: var(--shu); }
 .me-menu { position: absolute; right: 0; top: calc(100% + 10px); z-index: 25; width: 210px; padding: var(--s2); border-radius: var(--r); border: 1px solid var(--line); background: var(--ink-2); box-shadow: 0 18px 40px #000c; }
 .me-menu button { display: block; width: 100%; min-height: 44px; padding: 0 var(--s3); border: 0; border-radius: 6px; background: none; text-align: left; cursor: pointer; }

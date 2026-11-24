@@ -65,6 +65,8 @@ export function hasNew(w: { id: string; updated: string }): boolean {
 
 export function markWatched(id: string, ep: string) { const l = (watched[id] ??= []); if (!l.includes(ep)) l.push(ep); lastWatched[id] = Date.now(); }
 export const isWatched = (id: string, ep: string) => !!watched[id]?.includes(ep);
+/** 這部作品看過任何一集（相似作品標「看過」用） */
+export const hasWatched = (id: string) => !!watched[id]?.length || !!progress[id];
 /** 清除觀看紀錄：進度與看過的集一起清掉（只想從繼續觀看拿掉用 clearProgress） */
 export function clearHistory(id: string) { delete progress[id]; delete watched[id]; delete lastWatched[id]; }
 /** 清除全部作品的觀看紀錄（片單、有新集的基準、設定不動） */
