@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dubChoices, epAt, firstSpot, locate, nextSpot, prevSpot, sourceChoices, unionRows } from './work.ts';
+import { dubChoices, epAt, firstSpot, locate, nextSpot, prevSpot, resumeSpot, sourceChoices, unionRows } from './work.ts';
 import type { Detail, Dub, Season } from './types.ts';
 
 const dub = (lang: string, ...ids: string[]): Dub => ({ lang, list: 'pl', episodes: ids.map((id, i) => ({ id, n: i + 1, title: id, sec: 1440, ext: false })) });
@@ -50,4 +50,11 @@ test('nextSpot / prevSpot：照預設接下一集（不沿用這一支的配音�
 test('dubChoices：只列這一集有的配音', () => {
   assert.deepEqual(dubChoices(det, { s: 0, d: 0, i: 0 }).map((x) => [x.lang, epAt(det, x.spot).id]), [['日語', 'j1'], ['國語', 't1']]);
   assert.deepEqual(dubChoices(det, { s: 0, d: 1, i: 2 }).map((x) => x.lang), ['國語']);
+});
+
+test('resumeSpot：上次看到的集繼續；看到片尾（剩不到 90 秒）接下一集，沒有下一集停在原地', () => {
+  assert.deepEqual(resumeSpot(det, 'j1', 600), { s: 0, d: 0, i: 0 });
+  assert.equal(epAt(det, resumeSpot(det, 'j1', 1400)!).id, 'j2');                  // 1440 秒的集看到 1400 秒
+  assert.equal(epAt(det, resumeSpot(det, 'k1', 1400)!).id, 'k1');                  // 最後一集：停在原地
+  assert.equal(resumeSpot(det, 'gone', 10), null);
 });

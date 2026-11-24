@@ -55,6 +55,15 @@ export function nextSpot(det: Detail, p: Spot): Spot | null {
   return s < 0 ? null : unionRows(det, s)[0];
 }
 
+/**
+ * 繼續觀看要從哪裡開始（仿 Netflix）：上次看到的那一集；已經看到片尾（剩不到 90 秒）就接下一集從頭，沒有下一集就停在原地
+ */
+export function resumeSpot(det: Detail, ep: string, t: number): Spot | null {
+  const p = locate(det, ep);
+  if (!p || epAt(det, p).sec - t > 90) return p;
+  return nextSpot(det, p) ?? p;
+}
+
 /** 上一集；季的第一集就沒有 */
 export function prevSpot(det: Detail, p: Spot): Spot | null {
   const rows = unionRows(det, p.s), k = rows.findIndex((r) => r.n === epAt(det, p).n);

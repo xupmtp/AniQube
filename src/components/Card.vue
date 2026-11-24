@@ -5,13 +5,13 @@ import { canHover, hoverIn, hoverOut, openSheet } from '../preview.ts';
 import { hasNew, progress } from '../store.ts';
 
 const props = defineProps<{ work: Work; resume?: boolean; rank?: number }>();
-// 觸控裝置點卡片先開底部面板（仿 Netflix 手機版），不直接進作品頁
+// 點卡片直接播放（仿 Netflix）：有紀錄從上次的集數與秒數繼續，沒看過從第一季第一集。觸控裝置點卡片先開底部面板
 function tap(e: MouseEvent) { if (!canHover()) { e.preventDefault(); openSheet(props.work, !!props.resume); } }
 const pct = () => { const p = progress[props.work.id]; return props.resume && p?.d ? Math.min(100, Math.round((p.t / p.d) * 100)) : 0; };
 </script>
 
 <template>
-  <RouterLink class="card" :to="`/title/${encodeURIComponent(work.id)}`" @mouseenter="canHover() && hoverIn(work, $event.currentTarget as Element, !!resume)" @mouseleave="canHover() && hoverOut()" @click.capture="tap">
+  <RouterLink class="card" :to="`/watch/${encodeURIComponent(work.id)}`" @mouseenter="canHover() && hoverIn(work, $event.currentTarget as Element, !!resume)" @mouseleave="canHover() && hoverOut()" @click.capture="tap">
     <span v-if="rank" class="rank" aria-hidden="true">{{ rank }}</span>
     <div class="thumb">
       <img :src="posterOf(work)" :alt="work.title" loading="lazy" />

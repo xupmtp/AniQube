@@ -9,7 +9,7 @@ import { clearProgress, isWatched, markSeen, markWatched, progress, setProgress,
 import { isTyping, keyAction } from '../keys.ts';
 import { clock, pageUrl, share } from '../share.ts';
 import type { Detail, Episode } from '../types.ts';
-import { dubChoices, epAt, firstSpot, locate, nextSpot, prevSpot, sourceChoices, unionRows } from '../work.ts';
+import { dubChoices, epAt, firstSpot, locate, nextSpot, prevSpot, resumeSpot, sourceChoices, unionRows } from '../work.ts';
 import type { Spot } from '../work.ts';
 import SpecialList from '../components/SpecialList.vue';
 
@@ -37,12 +37,12 @@ watch(id, async (v) => {
   } catch { router.replace('/'); } // 已下架，或舊版以季為單位的網址
 }, { immediate: true });
 
-// 要播哪一集：網址指定 > 上次看到的 > 從頭；指到已經不存在的集就從頭
+// 要播哪一集：網址指定 > 上次看到的（看到片尾就接下一集）> 從第一季第一集；指到已經不存在的集就從頭
 const spot = computed<Spot | null>(() => {
   const det = detail.value;
   if (!det) return null;
-  const want = String(route.params.ep ?? '') || progress[id.value]?.ep || '';
-  return locate(det, want) ?? firstSpot(det);
+  const want = String(route.params.ep ?? ''), p = progress[id.value];
+  return (want ? locate(det, want) : p ? resumeSpot(det, p.ep, p.t) : null) ?? firstSpot(det);
 });
 const ep = computed(() => (detail.value && spot.value ? epAt(detail.value, spot.value) : undefined));
 const season = computed(() => (detail.value && spot.value ? detail.value.seasons[spot.value.s] : undefined));

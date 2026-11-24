@@ -148,6 +148,7 @@ main { min-height: calc(100vh - 120px); }
 .sheet-x { position: absolute; top: var(--s3); right: var(--s3); width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--ink-3); cursor: pointer; font-size: 16px; }
 .sheet-head { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: var(--s4); align-items: start; padding-right: 44px; }
 .sheet-head img { width: 112px; aspect-ratio: 16/9; object-fit: cover; border-radius: 6px; }
+.sheet-thumb { display: block; line-height: 0; }
 .sheet-head h3 { margin: 0 0 var(--s1); font: 900 20px/1.3 var(--serif); }
 .sheet-head .meta { font-size: var(--fs-sm); margin: 0 0 var(--s1); }
 .sheet .pv-bar { margin: var(--s4) 0 0; border-radius: 2px; overflow: hidden; }

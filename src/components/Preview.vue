@@ -40,7 +40,7 @@ watch(() => route.fullPath, close);
       <section class="sheet" role="dialog" aria-modal="true" :aria-label="w.title">
         <button class="sheet-x" aria-label="關閉" @click="close">✕</button>
         <div class="sheet-head">
-          <img :src="posterOf(w)" alt="" />
+          <RouterLink class="sheet-thumb" :to="`/watch/${enc(w.id)}`" :aria-label="`播放 ${w.title}`"><img :src="posterOf(w)" alt="" /></RouterLink>
           <div>
             <h3>{{ w.title }}</h3>
             <p class="meta">{{ metaLine(w) }}<template v-if="w.score"> · ★ {{ (w.score / 10).toFixed(1) }}</template></p>
@@ -61,7 +61,7 @@ watch(() => route.fullPath, close);
 
     <!-- 桌面：預覽卡 -->
     <article v-else-if="preview.rect" class="pv" :style="box" @mouseenter="keep" @mouseleave="close">
-      <RouterLink class="pv-thumb" :to="`/title/${enc(w.id)}`" tabindex="-1">
+      <RouterLink class="pv-thumb" :to="`/watch/${enc(w.id)}`" tabindex="-1">
         <img :src="posterOf(w)" :alt="w.title" />
         <span v-if="hasNew(w)" class="badge new">有新集</span>
       </RouterLink>
