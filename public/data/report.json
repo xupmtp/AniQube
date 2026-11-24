@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-11-23T00:46:11.323Z",
- "units": 253,
+ "generatedAt": "2026-11-24T04:42:44.895Z",
+ "units": 318,
  "unmatched": [
   {
    "id": "PL12UaAf_xzfpJ5cZMFVbaX8sczJfumXTd",
@@ -68,7 +68,10 @@
   }
  ],
  "dropped": [],
- "redundant": [],
+ "redundant": [
+  "v-tTkdVFQswbU",
+  "v-sqAxw2jU3Bo"
+ ],
  "fuzzy": [
   [
    "小書痴的下剋上:為了成為圖書管理員不擇手段!",
@@ -134,7 +137,7 @@
    "id": "7e37d9e878",
    "title": "萬古神帝",
    "playable": 1,
-   "members": 39
+   "members": 41
   },
   {
    "id": "bbd4464603",
@@ -205,44 +208,37 @@
  ],
  "desc": {
   "muse": {
-   "zh": 293,
-   "en": 7
+   "zh": 291,
+   "en": 9
   },
   "anione": {
-   "zh": 250,
-   "en": 1
+   "zh": 251,
+   "en": 0
   },
   "tencent": {
-   "zh": 74,
-   "en": 8
+   "zh": 81,
+   "en": 1
   },
   "mighty": {
    "zh": 25,
    "en": 0
   },
   "yuewen": {
-   "zh": 29,
-   "en": 1
+   "zh": 30,
+   "en": 0
   }
  },
  "descEn": [
   "UniteUp! 眾星齊聚 -Uni:Birth",
   "鍵等",
   "在下“英臺”",
-  "誅仙3",
-  "武庚紀",
-  "萬界仙蹤",
-  "妖怪名單",
-  "七界第一仙",
-  "人間最得意",
-  "力拔山河兮子唐",
-  "史上最強男主角",
-  "企鵝公路【木棉花電影院】",
+  "間諜教室",
+  "巨人族的新娘",
+  "我們的雨色協議",
   "不幸職業其實是最強的",
   "槍彈辯駁3絕望篇+希望篇",
-  "【木棉花電影院】讓我聽見愛的歌聲",
   "擅長逃跑的殿下 第9.5話【總集篇】",
-  "機動戰士鋼彈SEED Special Edition 虛空的戰場 HD Remaster"
+  "劇場版 魔法少女小圓〈瓦爾普吉斯的迴天〉"
  ],
  "counts": {
   "works": 688,
@@ -250,6 +246,6 @@
   "unmatched": 10,
   "guessed": 2,
   "fuzzy": 7,
-  "moved": 76
+  "moved": 78
  }
 }
