@@ -69,7 +69,7 @@ const enc = encodeURIComponent;
         <img v-if="work.cover" class="poster" :src="work.cover" :alt="work.title" />
         <div>
           <h1>{{ work.title }}</h1>
-          <p class="meta">{{ metaLine(work) }}<template v-if="work.score"> · ★ {{ (work.score / 10).toFixed(1) }}</template></p>
+          <p class="meta">{{ metaLine(work) }}</p>
           <p class="chips"><RouterLink v-for="g in [...work.genres, ...work.tags]" :key="g" :to="tagLink(g)">{{ g }}</RouterLink></p>
         </div>
       </div>

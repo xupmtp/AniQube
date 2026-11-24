@@ -43,7 +43,7 @@ watch(() => route.fullPath, close);
           <RouterLink class="sheet-thumb" :to="`/watch/${enc(w.id)}`" :aria-label="`播放 ${w.title}`"><img :src="posterOf(w)" alt="" /></RouterLink>
           <div>
             <h3>{{ w.title }}</h3>
-            <p class="meta">{{ metaLine(w) }}<template v-if="w.score"> · ★ {{ (w.score / 10).toFixed(1) }}</template></p>
+            <p class="meta">{{ metaLine(w) }}</p>
             <p class="pv-g"><template v-for="(g, i) in [...w.genres, ...w.tags].slice(0, 3)" :key="g">{{ i ? ' · ' : '' }}<RouterLink :to="tagLink(g)">{{ g }}</RouterLink></template></p>
             <p v-if="w.memberEps" class="pv-lock"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2" /></svg>{{ membersNote(w) }}</p>
           </div>
@@ -83,7 +83,7 @@ watch(() => route.fullPath, close);
           </RouterLink>
         </div>
         <strong class="pv-title">{{ w.title }}</strong>
-        <p class="pv-meta"><span v-if="w.score" class="pv-score">★ {{ (w.score / 10).toFixed(1) }}</span>{{ metaLine(w) }}</p>
+        <p class="pv-meta">{{ metaLine(w) }}</p>
         <p class="pv-g"><template v-for="(g, i) in [...w.genres, ...w.tags].slice(0, 3)" :key="g">{{ i ? ' · ' : '' }}<RouterLink :to="tagLink(g)">{{ g }}</RouterLink></template></p>
         <p v-if="w.memberEps" class="pv-lock"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2" /></svg>{{ membersNote(w) }}</p>
       </div>

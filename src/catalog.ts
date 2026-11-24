@@ -83,13 +83,9 @@ export const membersNote = (w: Work): string => (w.memberEps ? `${w.eps + w.memb
 /** 大多數集數是會員限定（鎖頭用金色強調） */
 export const mostlyMembers = (w: Work): boolean => (w.memberEps ?? 0) > w.eps;
 
+/** 卡片、主打推薦、預覽卡、作品頁的資訊列：只留年份、類型、狀態（季數、集數、評分不放） */
 export function metaLine(s: Work): string {
-  const parts = [s.year ? String(s.year) : '', FORMATS[s.format ?? ''] ?? '', s.status ? STATUS[s.status] ?? '' : '',
-    !s.eps && s.bundles ? `${s.bundles} 支合集`
-      : s.seasons > 1 ? `${s.seasons} 季 · ${s.eps} 集可看`
-      // 合輯（S1-S5）常對到第一季，集數會超過總集數，這時只顯示可看集數
-      : s.totalEps && s.eps <= s.totalEps ? `${s.eps} / ${s.totalEps} 集` : `${s.eps} 集可看`];
-  return parts.filter(Boolean).join(' · ');
+  return [s.year ? String(s.year) : '', FORMATS[s.format ?? ''] ?? '', s.status ? STATUS[s.status] ?? '' : ''].filter(Boolean).join(' · ');
 }
 
 /** 題材、標籤的連結：到瀏覽頁只套用這一個條件（瀏覽頁的 genre 參數題材與標籤共用） */

@@ -60,13 +60,8 @@ test('pickHero：優先近七天有更新且有橫幅，否則逐層放寬，空
 test('顯示格式', () => {
   assert.equal(fmtDur(1440), '24 分');
   assert.equal(fmtDur(6000), '1 時 40 分');
-  assert.equal(metaLine(all[0]), '2022 · TV 動畫 · 已完結 · 12 / 12 集');
-  assert.equal(metaLine(s({ totalEps: null, status: null, year: null, eps: 7 })), 'TV 動畫 · 7 集可看');
-});
-
-test('集數超過總集數時只顯示可看集數', () => {
-  assert.match(metaLine(s({ eps: 12, totalEps: 12 })), /12 \/ 12 集/);
-  assert.match(metaLine(s({ eps: 104, totalEps: 25 })), /104 集可看/);
+  assert.equal(metaLine(all[0]), '2022 · TV 動畫 · 已完結');                         // 季數、集數不放
+  assert.equal(metaLine(s({ totalEps: null, status: null, year: null, eps: 7 })), 'TV 動畫');
 });
 
 test('epTitle：去掉宣傳尾巴與字幕標示', () => {
@@ -74,10 +69,6 @@ test('epTitle：去掉宣傳尾巴與字幕標示', () => {
   assert.equal(epTitle('《BLEACH 死神》第356話 (繁中字幕 | 日語原聲)【Ani-One】'), '《BLEACH 死神》第356話');
   assert.equal(epTitle('ENG SUB《诛仙3》Jade Dynasty S3 EP78 |  | 腾讯视频 - 动漫'), 'ENG SUB《诛仙3》Jade Dynasty S3 EP78');
   assert.equal(epTitle('第1集'), '第1集');
-});
-
-test('多季作品顯示季數', () => {
-  assert.match(metaLine(s({ seasons: 6, eps: 11, totalEps: null })), /6 季 · 11 集可看/);
 });
 
 test('題材篩選用所有季的聯集（facets），不只卡片上顯示的', () => {

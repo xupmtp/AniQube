@@ -53,7 +53,7 @@ const picked = computed(() => {
     ...(f.format ? [{ key: 'format', label: FORMATS[f.format] ?? f.format, clear: () => set({ format: '' }) }] : []),
   ];
 });
-const clearAll = () => router.replace({ query: filters.value.q ? { q: filters.value.q } : {} });
+const clearAll = () => router.replace({ query: {} });
 
 watch(() => route.query, () => { limit.value = 60; });
 const works = computed(() => cat.value?.works ?? []);
@@ -73,7 +73,6 @@ const years = computed(() => [...new Set(works.value.map((s) => s.year).filter((
     <p v-else-if="!cat" class="state">載入中…</p>
     <template v-else>
       <div class="toolbar">
-        <input class="q" type="search" placeholder="搜尋作品、日文、英文名" :value="filters.q" aria-label="搜尋" @input="set({ q: ($event.target as HTMLInputElement).value })" />
         <label class="sort"><span class="sr-only">排序</span>
           <select :value="sort" aria-label="排序" @change="set({ sort: ($event.target as HTMLSelectElement).value })">
             <option v-for="(label, k) in SORTS" :key="k" :value="k">{{ label }}</option>
@@ -118,10 +117,11 @@ const years = computed(() => [...new Set(works.value.map((s) => s.year).filter((
       </div>
 
       <div class="status-line">
+        <button v-if="filters.q" class="picked" :aria-label="`清除搜尋 ${filters.q}`" @click="set({ q: '' })">搜尋「{{ filters.q }}」<span aria-hidden="true">×</span></button>
         <button v-for="p in picked" :key="p.key" class="picked" :aria-label="`移除 ${p.label}`" @click="p.clear()">
           {{ p.label }}<span aria-hidden="true">×</span>
         </button>
-        <button v-if="picked.length" class="link" @click="clearAll">清除全部</button>
+        <button v-if="picked.length || filters.q" class="link" @click="clearAll">清除全部</button>
         <span class="count">{{ result.length }} 部作品</span>
       </div>
 
