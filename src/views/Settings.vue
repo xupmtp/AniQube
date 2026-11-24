@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { clearAllHistory, exportBackup, historyIds, mergeBackup, parseBackup, settings } from '../store.ts';
-import { install, isIOS, promptInstall, standalone } from '../install.ts';
+import { install, installGuide, isIOS, promptInstall, standalone } from '../install.ts';
 
-// 安裝到主畫面：已經用 App 開啟、或這個瀏覽器不能安裝時整區不顯示
-const ios = !standalone() && isIOS();
-const showInstall = computed(() => !standalone() && (ios || !!install.prompt));
+// 安裝到主畫面：依瀏覽器給按鈕或步驟（installGuide）；已經用 App 開啟、或電腦上不能安裝時整區不顯示
+const ios = isIOS();
+const guide = computed(() => (standalone() ? null : installGuide(!!install.prompt)));
 
 // 備份與還原：沒有帳號，換裝置靠檔案搬資料（合併匯入，不會覆蓋這台裝置較新的進度）
 const file = ref<HTMLInputElement | null>(null);
@@ -79,12 +79,12 @@ function wipeAll() {
     </div>
     <input ref="file" type="file" accept="application/json,.json" hidden @change="restore" />
 
-    <template v-if="showInstall">
+    <template v-if="guide">
       <h2>安裝到主畫面</h2>
-      <div v-if="ios" class="opt">
+      <div v-if="!guide.button" class="opt">
         <span>
-          <strong>加到主畫面</strong>
-          <small>1. 點 Safari 下方的「分享」　2. 選「加入主畫面」　3. 按右上角「新增」。<br />主畫面 App 和 Safari 的片單、觀看紀錄是分開的，可以用上面的備份檔搬過去。</small>
+          <strong>{{ guide.inApp ? '先用瀏覽器開啟' : '加到主畫面' }}</strong>
+          <small><template v-for="(s, i) in guide.steps" :key="s">{{ i + 1 }}. {{ s }}<br /></template><template v-if="ios && !guide.inApp">主畫面 App 和瀏覽器的片單、觀看紀錄是分開的，可以用上面的備份檔搬過去。</template></small>
         </span>
       </div>
       <div v-else class="opt">
