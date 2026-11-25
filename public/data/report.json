@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-11-24T04:42:44.895Z",
- "units": 318,
+ "generatedAt": "2026-11-25T03:30:05.783Z",
+ "units": 279,
  "unmatched": [
   {
    "id": "PL12UaAf_xzfpJ5cZMFVbaX8sczJfumXTd",
@@ -46,20 +46,9 @@
    "id": "PLGmjIOE0c5Fo",
    "title": "《顾长歌：我！天命大反派》The Heavenly Fate Villain | 腾讯视频 - 动漫",
    "eps": 1
-  },
-  {
-   "id": "PL2ql078AibHUOp1H0wVVWefIYBKQcM-RJ",
-   "title": "暴走哈姆醬【繁中字幕】",
-   "eps": 55
   }
  ],
  "guessed": [
-  {
-   "id": "PLL1scbx1bl80",
-   "title": "夏目友人帳 (全部集數)｜Muse木棉花 動畫 線上看",
-   "anilistId": 4081,
-   "how": "first"
-  },
   {
    "id": "PLxOs22nkVmnJ_dgTuecVIaIYW2iXOOiML",
    "title": "【Members Premiere 会员抢先看】《灵剑尊》Spirit Sword Sovereign | 楚行云万仞归元，初生之虎无惧天下挑战 | 腾讯视频 - 动漫",
@@ -119,7 +108,7 @@
    "id": "c0b658325f",
    "title": "大夏守墓人",
    "playable": 1,
-   "members": 18
+   "members": 19
   },
   {
    "id": "57c34111b1",
@@ -143,7 +132,7 @@
    "id": "bbd4464603",
    "title": "顧長歌：我！天命大反派",
    "playable": 1,
-   "members": 41
+   "members": 43
   },
   {
    "id": "816f63498f",
@@ -206,6 +195,10 @@
    "members": 47
   }
  ],
+ "similar": {
+  "fromAniList": 565,
+  "works": 688
+ },
  "desc": {
   "muse": {
    "zh": 291,
@@ -243,8 +236,8 @@
  "counts": {
   "works": 688,
   "seasons": 2555,
-  "unmatched": 10,
-  "guessed": 2,
+  "unmatched": 9,
+  "guessed": 1,
   "fuzzy": 7,
   "moved": 78
  }
