@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-11-26T02:45:27.409Z",
- "units": 251,
+ "generatedAt": "2026-11-27T02:46:13.300Z",
+ "units": 319,
  "unmatched": [
   {
    "id": "PL12UaAf_xzfpJ5cZMFVbaX8sczJfumXTd",
@@ -108,7 +108,7 @@
    "id": "c0b658325f",
    "title": "大夏守墓人",
    "playable": 1,
-   "members": 20
+   "members": 21
   },
   {
    "id": "57c34111b1",
@@ -120,7 +120,7 @@
    "id": "ad6f4f6fe8",
    "title": "死靈法師！我即是天災",
    "playable": 1,
-   "members": 39
+   "members": 41
   },
   {
    "id": "7e37d9e878",
@@ -235,7 +235,7 @@
  ],
  "counts": {
   "works": 688,
-  "seasons": 2555,
+  "seasons": 2557,
   "unmatched": 9,
   "guessed": 1,
   "fuzzy": 7,
