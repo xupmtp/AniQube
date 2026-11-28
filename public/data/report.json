@@ -1,7 +1,12 @@
 {
- "generatedAt": "2026-11-27T02:46:13.300Z",
- "units": 319,
+ "generatedAt": "2026-11-28T02:36:55.082Z",
+ "units": 289,
  "unmatched": [
+  {
+   "id": "PLP4U4b__C5Jg",
+   "title": "暗部共生少女",
+   "eps": 8
+  },
   {
    "id": "PL12UaAf_xzfpJ5cZMFVbaX8sczJfumXTd",
    "title": "《人中之龍 Powered by 日本統一》｜Muse木棉花 動畫 線上看",
@@ -132,7 +137,7 @@
    "id": "bbd4464603",
    "title": "顧長歌：我！天命大反派",
    "playable": 1,
-   "members": 43
+   "members": 44
   },
   {
    "id": "816f63498f",
@@ -196,7 +201,7 @@
   }
  ],
  "similar": {
-  "fromAniList": 565,
+  "fromAniList": 564,
   "works": 688
  },
  "desc": {
@@ -235,8 +240,8 @@
  ],
  "counts": {
   "works": 688,
-  "seasons": 2557,
-  "unmatched": 9,
+  "seasons": 2560,
+  "unmatched": 10,
   "guessed": 1,
   "fuzzy": 7,
   "moved": 78
